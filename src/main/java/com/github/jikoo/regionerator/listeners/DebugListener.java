@@ -12,14 +12,15 @@ package com.github.jikoo.regionerator.listeners;
 
 import com.github.jikoo.regionerator.DebugLevel;
 import com.github.jikoo.regionerator.Regionerator;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.logging.Level;
 import org.bukkit.Chunk;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.world.ChunkLoadEvent;
 import org.jetbrains.annotations.NotNull;
+
+import java.util.HashSet;
+import java.util.Set;
+import java.util.logging.Level;
 
 /**
  * Listener used for additional debugging info.

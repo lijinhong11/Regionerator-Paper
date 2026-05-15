@@ -10,7 +10,9 @@
 
 package com.github.jikoo.regionerator.listeners;
 
+import com.github.jikoo.regionerator.DeletionRunnable;
 import com.github.jikoo.regionerator.Regionerator;
+import org.bukkit.World;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.world.WorldLoadEvent;
@@ -46,13 +48,17 @@ public class WorldListener implements Listener {
 
 	@EventHandler
 	public void onWorldUnload(@NotNull WorldUnloadEvent event) {
-		plugin.getWorldManager().releaseWorld(event.getWorld());
+		World world = event.getWorld();
+		plugin.getWorldManager().releaseWorld(world);
 
-		if (plugin.config().enabledWorlds().contains(event.getWorld().getName())) {
+		if (plugin.config().enabledWorlds().contains(world.getName())) {
 			// TODO Is world still in server world list? Does recalc need to be delayed?
 			plugin.reloadConfig();
+		} else {
+			DeletionRunnable runnable = plugin.deletionRunnables.remove(world.getName());
+			if (runnable != null) {
+				runnable.cancel();
+			}
 		}
-		// TODO possibly cancel deletion here
 	}
-
 }

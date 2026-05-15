@@ -13,9 +13,10 @@ package com.github.jikoo.regionerator;
 import com.github.jikoo.regionerator.world.ChunkInfo;
 import com.github.jikoo.regionerator.world.RegionInfo;
 import com.github.jikoo.regionerator.world.WorldInfo;
+import com.tcoded.folialib.wrapper.task.WrappedTask;
+import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.bukkit.plugin.IllegalPluginAccessException;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -23,11 +24,10 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -35,7 +35,7 @@ import java.util.stream.Stream;
 /**
  * Runnable for checking and deleting chunks and regions.
  */
-public class DeletionRunnable extends BukkitRunnable {
+public class DeletionRunnable implements Consumer<WrappedTask> {
 
 	private static final String STATS_FORMAT = "%s: checked %s, deleted %s regions & %s chunks";
 
@@ -51,6 +51,9 @@ public class DeletionRunnable extends BukkitRunnable {
 	private long nextLogSecond = Instant.now().getEpochSecond() + 5;
 	private int nextLogCount = 20;
 
+	private WrappedTask taskInstance;
+	private List<Chunk> lessInteractChunks = new ArrayList<>();
+
 	DeletionRunnable(@NotNull Regionerator plugin, @NotNull World world) {
 		this.plugin = plugin;
 		this.phaser = new Phaser(1);
@@ -59,21 +62,24 @@ public class DeletionRunnable extends BukkitRunnable {
 	}
 
 	@Override
-	public void run() {
-		if (world == null) {
+	public void accept(WrappedTask task) {
+		if (this.world == null) {
 			throw new IllegalStateException("Cannot reuse deletion runnable!");
 		}
 
-		Future<Stream<RegionInfo>> regionsFuture = plugin.getServer().getScheduler().callSyncMethod(plugin, world::getRegions);
+		taskInstance = task;
 
 		Stream<RegionInfo> regions = null;
 		try {
 			// Fetch region info on the main thread. Getting data folder may throw a CME otherwise.
-			regions = regionsFuture.get();
-		} catch (InterruptedException | ExecutionException e) {
+			regions = world.getRegions();
+		} catch (Exception e) {
 			plugin.getLogger().severe("Unable to access world data!");
 			plugin.getLogger().log(Level.SEVERE, "Error accessing world data on main thread", e);
 		}
+
+		int days = plugin.config().getExpiredDaysInWorld(world.getWorld());
+		lessInteractChunks = plugin.getTracker().pollExpiredChunks(world.getWorld(), days);
 
 		if (regions != null) {
 			regions.forEach(this::handleRegion);
@@ -87,7 +93,7 @@ public class DeletionRunnable extends BukkitRunnable {
 		// If configured to remember cycle delays across restarts, do post-run callback on the main thread.
 		if (plugin.config().isRememberCycleDelay()) {
 			try {
-				plugin.getServer().getScheduler().runTask(plugin, () -> plugin.finishCycle(this));
+				plugin.getScheduler().runNextTick(t -> plugin.finishCycle(this));
 			} catch (IllegalPluginAccessException e) {
 				// Plugin disabling, odds are on that we were mid-cycle. Don't update finish time.
 			}
@@ -96,18 +102,21 @@ public class DeletionRunnable extends BukkitRunnable {
 		phaser.arriveAndDeregister();
 	}
 
-	@Override
 	public synchronized void cancel() throws IllegalStateException {
-		super.cancel();
+		if (taskInstance != null) {
+			taskInstance.cancel();
+		}
+
 		this.world = null;
 	}
 
-	@Override
 	public synchronized boolean isCancelled() throws IllegalStateException {
-		return super.isCancelled() || !plugin.isEnabled();
+		return taskInstance == null || taskInstance.isCancelled();
 	}
 
 	private void handleRegion(@NotNull RegionInfo region) {
+		plugin.getLogger().info("Cancelled: " + isCancelled());
+
 		if (isCancelled()) {
 			return;
 		}
@@ -115,7 +124,7 @@ public class DeletionRunnable extends BukkitRunnable {
 		// Check phaser for paused state.
 		phaser.arriveAndAwaitAdvance();
 
-		regionCount.incrementAndGet();
+		int regionsChecked = regionCount.incrementAndGet();
 		plugin.debug(DebugLevel.HIGH, () -> String.format("Checking %s: %s (%s)",
 				worldName, region.getIdentifier(), regionCount.get()));
 
@@ -141,7 +150,6 @@ public class DeletionRunnable extends BukkitRunnable {
 
 		// If 5 seconds have elapsed since last log and 20 or more regions have been checked, log run stats.
 		long now = Instant.now().getEpochSecond();
-		int regionsChecked = regionCount.get();
 		if (nextLogSecond <= now && regionsChecked >= nextLogCount) {
 			nextLogSecond = now + 5;
 			nextLogCount = regionsChecked + 20;
@@ -162,6 +170,7 @@ public class DeletionRunnable extends BukkitRunnable {
 			plugin.getLogger().log(Level.WARNING, "Unable to read region!", e);
 			return false;
 		}
+
 		return true;
 	}
 
@@ -229,8 +238,10 @@ public class DeletionRunnable extends BukkitRunnable {
 	}
 
 	private boolean isDeleteEligible(@NotNull ChunkInfo chunkInfo) {
+		World world = chunkInfo.getWorld();
+
 		if (isCancelled()) {
-			// If task is cancelled, report all chunks ineligible for deletion
+			// If task is canceled, report all chunks ineligible for deletion
 			plugin.debug(DebugLevel.HIGH, () -> "Deletion task is cancelled, chunks are ineligible for delete.");
 			return false;
 		}
@@ -238,13 +249,19 @@ public class DeletionRunnable extends BukkitRunnable {
 		if (chunkInfo.isOrphaned()) {
 			// Chunk already deleted
 			plugin.debug(DebugLevel.HIGH, () -> String.format("Chunk %s_%s_%s is already orphaned.",
-					chunkInfo.getWorld().getName(), chunkInfo.getChunkX(), chunkInfo.getChunkZ()));
+					world.getName(), chunkInfo.getChunkX(), chunkInfo.getChunkZ()));
 			return true;
 		}
 
 		long now = System.currentTimeMillis();
 		long lastVisit = chunkInfo.getLastVisit();
-		boolean isFresh = !plugin.config().isDeleteFreshChunks(chunkInfo.getWorld()) && lastVisit == plugin.config().getFlagGenerated(chunkInfo.getWorld());
+		boolean isFresh = !plugin.config().isDeleteFreshChunks(world) && lastVisit == plugin.config().getFlagGenerated(world);
+
+		if (lessInteractChunks.contains(chunkInfo.getBukkitChunk())) {
+			plugin.debug(DebugLevel.HIGH, () -> String.format("Chunk %s_%s_%s is marked as delete because of less interactions",
+					chunkInfo.getWorld().getName(), chunkInfo.getChunkX(), chunkInfo.getChunkZ()));
+			return true;
+		}
 
 		if (!isFresh && now <= lastVisit) {
 			// Chunk is visited
@@ -296,7 +313,9 @@ public class DeletionRunnable extends BukkitRunnable {
 				plugin.debug(DebugLevel.HIGH, () -> "Skipping region - in use by server.");
 				return;
 			}
+
 			chunks.forEach(chunk -> plugin.getFlagger().unflagChunk(chunk.getWorld().getName(), chunk.getChunkX(), chunk.getChunkZ()));
+
 			if (chunks.size() == region.getChunksPerRegion()) {
 				regionsDeleted.incrementAndGet();
 			} else {
@@ -323,5 +342,4 @@ public class DeletionRunnable extends BukkitRunnable {
 	@NotNull Phaser getPhaser() {
 		return phaser;
 	}
-
 }

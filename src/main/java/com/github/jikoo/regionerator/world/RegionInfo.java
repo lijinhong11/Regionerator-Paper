@@ -25,6 +25,9 @@ public abstract class RegionInfo {
 
 	private static final String[] ACCEPTABLE_IO_EXCEPTIONS = { "Text file busy" };
 
+	public static final int CHUNKS_PER_AXIS = 32;
+	public static final int TOTAL_CHUNKS = 1024;
+
 	private final @NotNull WorldInfo world;
 	private final int lowestChunkX, lowestChunkZ;
 
@@ -39,6 +42,14 @@ public abstract class RegionInfo {
 		this.world = world;
 		this.lowestChunkX = lowestChunkX;
 		this.lowestChunkZ = lowestChunkZ;
+	}
+
+	public static int getRegionX(int chunkX) {
+		return Math.floorDiv(chunkX, 32);
+	}
+
+	public static int getRegionZ(int chunkZ) {
+		return Math.floorDiv(chunkZ, 32);
 	}
 
 	/**

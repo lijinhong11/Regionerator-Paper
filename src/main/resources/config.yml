@@ -52,6 +52,12 @@ deletion:
   # Whether to remember time for next cycle on plugin load
   remember-next-cycle-time: false
 
+# The region format of the server using.
+# Requires server restart!
+# You need to set it to other things instead of NONE to enable Regionerator!
+# Usable region formats: ANVIL, LINEAR
+world-implementation: NONE
+
 # Worlds the plugin is able to delete regions in
 worlds:
   # "default" applies to all worlds not specified.
@@ -61,6 +67,10 @@ worlds:
     # To disable flagging, set this to 0.
     # days-till-flag-expires must be greater than 0 to be used with delete-new-unvisited-chunks
     days-till-flag-expires: -1
+    # Interactions lower than x times can be ignored and the region deleted.
+    # Set to lower than 1 to disable this check
+    # Used with days-till-flag-expires, so the task will check the min-interactions in the chunk every X days
+    min-interactions: 10
 
 safe-login:
   # Whether to modify login location if in a deleted chunk.

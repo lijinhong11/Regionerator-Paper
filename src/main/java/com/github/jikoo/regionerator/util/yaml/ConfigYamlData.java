@@ -10,13 +10,12 @@
 
 package com.github.jikoo.regionerator.util.yaml;
 
-import org.bukkit.plugin.Plugin;
+import com.github.jikoo.regionerator.Regionerator;
 import org.jetbrains.annotations.NotNull;
 
 public abstract class ConfigYamlData extends YamlData {
 
-	public ConfigYamlData(@NotNull Plugin plugin) {
+	public ConfigYamlData(@NotNull Regionerator plugin) {
 		super(plugin, plugin::getConfig, yaml -> plugin.saveConfig());
 	}
-
 }

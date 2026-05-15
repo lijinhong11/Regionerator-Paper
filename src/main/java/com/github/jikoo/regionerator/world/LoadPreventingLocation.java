@@ -11,11 +11,12 @@
 package com.github.jikoo.regionerator.world;
 
 import com.github.jikoo.planarwrappers.util.Coords;
-import java.util.Objects;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.jetbrains.annotations.NotNull;
+
+import java.util.Objects;
 
 /**
  * A Location implementation that returns a DummyChunk instead of CraftBukkit's implementation,

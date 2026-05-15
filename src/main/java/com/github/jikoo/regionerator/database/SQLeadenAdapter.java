@@ -13,14 +13,11 @@ package com.github.jikoo.regionerator.database;
 import com.github.jikoo.regionerator.ChunkFlagger;
 import com.github.jikoo.regionerator.Regionerator;
 import com.github.jikoo.regionerator.util.yaml.Config;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import org.jetbrains.annotations.NotNull;
+
+import java.sql.*;
 import java.util.Collection;
 import java.util.logging.Level;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Adapter for old versions of SQLite.

@@ -10,34 +10,28 @@
 
 package com.github.jikoo.regionerator;
 
+import com.github.jikoo.regionerator.activity.ChunkActivityTracker;
 import com.github.jikoo.regionerator.commands.RegioneratorExecutor;
 import com.github.jikoo.regionerator.hooks.Hook;
 import com.github.jikoo.regionerator.hooks.PluginHook;
-import com.github.jikoo.regionerator.listeners.DebugListener;
-import com.github.jikoo.regionerator.listeners.FlaggingListener;
-import com.github.jikoo.regionerator.listeners.HookListener;
-import com.github.jikoo.regionerator.listeners.RescueListener;
-import com.github.jikoo.regionerator.listeners.WorldListener;
+import com.github.jikoo.regionerator.listeners.*;
 import com.github.jikoo.regionerator.util.DeletionStartComparator;
 import com.github.jikoo.regionerator.util.yaml.Config;
 import com.github.jikoo.regionerator.util.yaml.MiscData;
+import com.tcoded.folialib.FoliaLib;
+import com.tcoded.folialib.impl.PlatformScheduler;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -51,11 +45,14 @@ import java.util.stream.Collectors;
  */
 @SuppressWarnings({"WeakerAccess"})
 public class Regionerator extends JavaPlugin {
+	private static Regionerator instance;
 
-	private final Map<String, DeletionRunnable> deletionRunnables = new ConcurrentHashMap<>();
+	public final Map<String, DeletionRunnable> deletionRunnables = new ConcurrentHashMap<>();
 	private final Set<Hook> protectionHooks = Collections.newSetFromMap(new ConcurrentHashMap<>());
-	private final WorldManager worldManager = new WorldManager(this);
 	private final AtomicBoolean paused = new AtomicBoolean();
+	private final FoliaLib foliaLib = new FoliaLib(this);
+	private final ChunkActivityTracker tracker = new ChunkActivityTracker();
+	private WorldManager worldManager;
 	private ChunkFlagger chunkFlagger;
 	private Config config;
 	private MiscData miscData;
@@ -64,6 +61,7 @@ public class Regionerator extends JavaPlugin {
 
 	@Override
 	public void onEnable() {
+		instance = this;
 
 		saveDefaultConfig();
 		config = new Config(this);
@@ -81,6 +79,21 @@ public class Regionerator extends JavaPlugin {
 		if (migrated) {
 			getConfig().set("delete-this-to-reset-plugin", null);
 			saveConfig();
+		}
+
+		try {
+			RegionImplementation regionImpl = RegionImplementation.valueOf(getConfig().getString("world-implementation", "NONE").toUpperCase());
+			if (regionImpl == RegionImplementation.NONE) {
+				getLogger().severe("Region implementation is not set, plugin will shutdown! Available options: LINEAR, ANVIL");
+				getServer().getPluginManager().disablePlugin(this);
+				return;
+			} else {
+				worldManager = new WorldManager(this, regionImpl);
+			}
+		} catch (Exception e) {
+			getLogger().severe("Wrong region implementation, plugin will shutdown! Available options: LINEAR, ANVIL");
+			getServer().getPluginManager().disablePlugin(this);
+			return;
 		}
 
 		chunkFlagger = new ChunkFlagger(this);
@@ -102,7 +115,7 @@ public class Regionerator extends JavaPlugin {
 		 * a circular dependency Bukkit makes no attempt to resolve soft dependencies at all.
 		 * To combat this, we load features after the server boots.
 		 */
-		getServer().getScheduler().runTask(this, () -> {
+		getScheduler().runNextTick(t -> {
 			// Reconsider world validity after plugins have enabled in case world provider also loads late.
 			config.reconsiderWorldValidity();
 			miscData.checkWorldValidity();
@@ -113,6 +126,10 @@ public class Regionerator extends JavaPlugin {
 				return;
 			}
 
+			// Enable world case correction listener.
+			getServer().getPluginManager().registerEvents(new WorldListener(this), this);
+			getServer().getPluginManager().registerEvents(new ChunkActivityListener(tracker), this);
+
 			reloadFeatures();
 
 			debug(DebugLevel.LOW, () -> executor.onCommand(Bukkit.getConsoleSender(), Objects.requireNonNull(command), "regionerator", new String[0]));
@@ -122,13 +139,14 @@ public class Regionerator extends JavaPlugin {
 	@Override
 	public void onDisable() {
 		// Manually cancel deletion runnables - Bukkit does not do a good job of informing tasks they can't continue.
-		deletionRunnables.values().forEach(BukkitRunnable::cancel);
+		deletionRunnables.values().forEach(DeletionRunnable::cancel);
 		deletionRunnables.clear();
 		// Purge pending flags from listener.
 		if (flagger != null) {
 			flagger.cancel();
 		}
-		getServer().getScheduler().cancelTasks(this);
+
+		getScheduler().cancelAllTasks();
 
 		if (chunkFlagger != null) {
 			getLogger().info("Shutting down flagger - currently holds " + chunkFlagger.getCached() + " flags.");
@@ -160,8 +178,6 @@ public class Regionerator extends JavaPlugin {
 
 		debug(DebugLevel.LOW, () -> "Loading features...");
 
-		// Enable world case correction listener.
-		getServer().getPluginManager().registerEvents(new WorldListener(this), this);
 		// Enable rescue tagging listener.
 		getServer().getPluginManager().registerEvents(new RescueListener(this), this);
 		// Always enable hook listener in case someone else adds hooks.
@@ -189,7 +205,7 @@ public class Regionerator extends JavaPlugin {
 				continue;
 			} catch (NoClassDefFoundError e) {
 				// Class exists, but dependencies are not available.
-				debug(() -> String.format("Dependencies not found for %s hook, skipping.", hookName), e);
+				debug(DebugLevel.LOW, () -> String.format("Dependencies not found for %s hook, skipping.", hookName));
 				continue;
 			}
 
@@ -207,10 +223,10 @@ public class Regionerator extends JavaPlugin {
 					setPaused(true);
 				}
 			} catch (NoClassDefFoundError e) {
-				debug(() -> String.format("Dependencies not found for %s hook, skipping.", hookName), e);
+				debug(DebugLevel.LOW, () -> String.format("Dependencies not found for %s hook, skipping.", hookName));
 			} catch (ReflectiveOperationException e) {
 				if (e instanceof InvocationTargetException && e.getCause() instanceof ClassNotFoundException) {
-					debug(() -> String.format("Dependencies not found for %s hook, skipping.", hookName), e);
+					debug(DebugLevel.OFF, () -> String.format("Dependencies not found for %s hook, skipping.", hookName));
 				} else {
 					getLogger().log(Level.SEVERE, "Unable to enable hook for " + hookName + "! Deletion is paused.", e);
 					setPaused(true);
@@ -225,11 +241,12 @@ public class Regionerator extends JavaPlugin {
 		}
 
 		// Periodically attempt to start deletion
-		getServer().getScheduler().runTaskTimer(this, this::attemptDeletionActivation, 0L, 1200L);
+		getScheduler().runTimer(this::attemptDeletionActivation, 1L, 1200L);
 
 		if (debug(DebugLevel.HIGH)) {
 			getServer().getPluginManager().registerEvents(debugListener, this);
 		}
+
 		debug(DebugLevel.LOW, () -> "Load complete!");
 	}
 
@@ -243,6 +260,10 @@ public class Regionerator extends JavaPlugin {
 
 	public @NotNull WorldManager getWorldManager() {
 		return worldManager;
+	}
+
+	public ChunkActivityTracker getTracker() {
+		return tracker;
 	}
 
 	void finishCycle(@NotNull DeletionRunnable runnable) {
@@ -297,11 +318,11 @@ public class Regionerator extends JavaPlugin {
 			}
 			try {
 				runnable = new DeletionRunnable(this, world);
+				getScheduler().runAsync(runnable);
 			} catch (RuntimeException e) {
 				debug(DebugLevel.HIGH, e::getMessage);
 				continue;
 			}
-			runnable.runTaskAsynchronously(this);
 			deletionRunnables.put(worldName, runnable);
 			miscData.setLastCycleStart(worldName, System.currentTimeMillis());
 			debug(DebugLevel.LOW, () -> "Deletion run scheduled for " + world.getName());
@@ -342,8 +363,12 @@ public class Regionerator extends JavaPlugin {
 		return false;
 	}
 
-	public boolean removeHook(Hook hook) {
-		return this.protectionHooks.remove(hook);
+	public void removeHook(Hook hook) {
+		this.protectionHooks.remove(hook);
+	}
+
+	public static Regionerator getInstance() {
+		return instance;
 	}
 
 	public ChunkFlagger getFlagger() {
@@ -356,6 +381,10 @@ public class Regionerator extends JavaPlugin {
 
 	public boolean isPaused() {
 		return this.paused.get();
+	}
+
+	public PlatformScheduler getScheduler() {
+		return foliaLib.getScheduler();
 	}
 
 	public void setPaused(boolean paused) {

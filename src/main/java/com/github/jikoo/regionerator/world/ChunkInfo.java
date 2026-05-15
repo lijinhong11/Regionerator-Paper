@@ -15,6 +15,7 @@ import com.github.jikoo.regionerator.Regionerator;
 import com.github.jikoo.regionerator.VisitStatus;
 import com.github.jikoo.regionerator.hooks.Hook;
 import com.github.jikoo.regionerator.util.VisitStatusCache;
+import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.jetbrains.annotations.NotNull;
 
@@ -75,6 +76,15 @@ public abstract class ChunkInfo {
 	 */
 	public int getChunkZ() {
 		return regionInfo.getLowestChunkZ() + localChunkZ;
+	}
+
+	/**
+	 * Gets the bukkit chunk
+	 *
+	 * @return the bukkit chunk
+	 */
+	public Chunk getBukkitChunk() {
+		return getWorld().getChunkAt(getChunkX(), getChunkZ());
 	}
 
 	/**

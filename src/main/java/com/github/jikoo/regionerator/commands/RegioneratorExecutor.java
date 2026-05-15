@@ -28,11 +28,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.Collections;
-import java.util.Date;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.stream.Stream;
 
@@ -40,13 +36,12 @@ public class RegioneratorExecutor implements TabExecutor {
 
 	private final @NotNull Regionerator plugin;
 	private final @NotNull Map<String, DeletionRunnable> deletionRunnables;
-	private final @NotNull FlagHandler flagHandler;
+	//private final @NotNull FlagHandler flagHandler;
 
 	public RegioneratorExecutor(@NotNull Regionerator plugin,
 			@NotNull Map<String, DeletionRunnable> deletionRunnables) {
 		this.plugin = plugin;
 		this.deletionRunnables = deletionRunnables;
-		flagHandler = new FlagHandler(plugin);
 	}
 
 	@Override
@@ -95,40 +90,39 @@ public class RegioneratorExecutor implements TabExecutor {
 		}
 
 		args[0] = args[0].toLowerCase();
-		if (args[0].equals("reload")) {
-			plugin.reloadConfig();
-			plugin.reloadFeatures();
-			sender.sendMessage("Regionerator configuration reloaded!");
-			return true;
-		}
+        switch (args[0]) {
+            case "reload" -> {
+                plugin.reloadConfig();
+                plugin.reloadFeatures();
+                sender.sendMessage("Regionerator configuration reloaded!");
+                return true;
+            }
+            case "pause", "stop" -> {
+                plugin.setPaused(true);
+                sender.sendMessage("Paused Regionerator. Use /regionerator resume to resume.");
+                return true;
+            }
+            case "resume", "unpause", "start" -> {
+                plugin.setPaused(false);
+                sender.sendMessage("Resumed Regionerator. Use /regionerator pause to pause.");
+                return true;
+            }
+            case "flag" -> {
+                //flagHandler.handleFlags(sender, args, true);
+                return true;
+            }
+            case "unflag" -> {
+                //flagHandler.handleFlags(sender, args, false);
+                return true;
+            }
+            case "cache" -> {
+                sender.sendMessage("Cached chunk values: " + plugin.getFlagger().getCached());
+                sender.sendMessage("Queued saves: " + plugin.getFlagger().getQueued());
+                return true;
+            }
+        }
 
-		if (args[0].equals("pause") || args[0].equals("stop") ) {
-			plugin.setPaused(true);
-			sender.sendMessage("Paused Regionerator. Use /regionerator resume to resume.");
-			return true;
-		}
-		if (args[0].equals("resume") || args[0].equals("unpause") || args[0].equals("start")) {
-			plugin.setPaused(false);
-			sender.sendMessage("Resumed Regionerator. Use /regionerator pause to pause.");
-			return true;
-		}
-
-		if (args[0].equals("flag")) {
-			flagHandler.handleFlags(sender, args, true);
-			return true;
-		}
-		if (args[0].equals("unflag")) {
-			flagHandler.handleFlags(sender, args, false);
-			return true;
-		}
-
-		if (args[0].equals("cache")) {
-			sender.sendMessage("Cached chunk values: " + plugin.getFlagger().getCached());
-			sender.sendMessage("Queued saves: " + plugin.getFlagger().getQueued());
-			return true;
-		}
-
-		if (sender instanceof Player player && args[0].equals("check")) {
+        if (sender instanceof Player player && args[0].equals("check")) {
 
 			if (!plugin.config().isEnabled(player.getWorld().getName())) {
 				player.sendMessage("World is not configured for deletion.");

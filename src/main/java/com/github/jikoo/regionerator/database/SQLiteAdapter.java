@@ -15,11 +15,7 @@ import com.github.jikoo.regionerator.Regionerator;
 import com.github.jikoo.regionerator.util.yaml.Config;
 import org.jetbrains.annotations.NotNull;
 
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.Collection;
 
 /**

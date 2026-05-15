@@ -12,6 +12,7 @@ package com.github.jikoo.regionerator;
 
 import com.github.jikoo.regionerator.world.WorldInfo;
 import com.github.jikoo.regionerator.world.impl.anvil.AnvilWorld;
+import com.github.jikoo.regionerator.world.impl.linear.LinearWorld;
 import org.bukkit.World;
 import org.jetbrains.annotations.NotNull;
 
@@ -23,9 +24,12 @@ public class WorldManager {
 	private final @NotNull Regionerator plugin;
 	private final @NotNull Map<String, WorldInfo> worlds;
 
-	public WorldManager(@NotNull Regionerator plugin) {
+	private final @NotNull RegionImplementation regionImplementation;
+
+	public WorldManager(@NotNull Regionerator plugin, @NotNull RegionImplementation regionImplementation) {
 		this.plugin = plugin;
 		this.worlds = new HashMap<>();
+		this.regionImplementation = regionImplementation;
 	}
 
 	public @NotNull WorldInfo getWorld(@NotNull World world) {
@@ -37,7 +41,10 @@ public class WorldManager {
 	}
 
 	private @NotNull WorldInfo getWorldImpl(@NotNull World world) {
-		return new AnvilWorld(plugin, world);
+		return switch (regionImplementation) {
+			case ANVIL -> new AnvilWorld(plugin, world);
+			case LINEAR -> new LinearWorld(plugin, world);
+			case NONE -> throw new IllegalArgumentException();
+		};
 	}
-
 }

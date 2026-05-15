@@ -39,7 +39,7 @@ public class LandsHook extends PluginHook {
 
 	private @NotNull LandsIntegration getLandsAPI() {
 		if (landsAPI == null) {
-			landsAPI = LandsIntegration.of(Regionerator.getPlugin(Regionerator.class));
+			landsAPI = LandsIntegration.of(Regionerator.getInstance());
 		}
 
 		return landsAPI;

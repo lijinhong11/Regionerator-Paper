@@ -10,34 +10,34 @@
 
 package com.github.jikoo.regionerator.util.yaml;
 
+import com.github.jikoo.regionerator.Regionerator;
+import com.tcoded.folialib.wrapper.task.WrappedTask;
+import org.bukkit.Location;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.serialization.ConfigurationSerializable;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.util.Vector;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Level;
-import org.bukkit.Location;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.serialization.ConfigurationSerializable;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.Plugin;
-import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.scheduler.BukkitTask;
-import org.bukkit.util.Vector;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 @SuppressWarnings({"unused", "SameParameterValue"})
 public abstract class YamlData {
 
-	final @NotNull Plugin plugin;
+	final @NotNull Regionerator plugin;
 	private final @NotNull Supplier<FileConfiguration> loadSupplier;
 	private final @NotNull Consumer<FileConfiguration> saveConsumer;
 	private FileConfiguration storage;
 	private boolean dirty = false;
-	private BukkitTask saveTask;
+	private WrappedTask saveTask;
 
 	public YamlData(
-			@NotNull Plugin plugin,
+			@NotNull Regionerator plugin,
 			@NotNull Supplier<FileConfiguration> loadSupplier,
 			@NotNull Consumer<FileConfiguration> saveConsumer) {
 		this.plugin = plugin;
@@ -117,19 +117,7 @@ public abstract class YamlData {
 			return;
 		}
 		try {
-			saveTask = new BukkitRunnable() {
-				@Override
-				public void run() {
-
-					saveNow();
-				}
-
-				@Override
-				public synchronized void cancel() throws IllegalStateException {
-					super.cancel();
-					saveNow();
-				}
-			}.runTaskLater(plugin, 200L);
+			saveTask = plugin.getScheduler().runTimer(this::saveNow, 1L,200L);
 		} catch (IllegalStateException e) {
 			// Plugin is being disabled, cannot schedule tasks
 			saveNow();

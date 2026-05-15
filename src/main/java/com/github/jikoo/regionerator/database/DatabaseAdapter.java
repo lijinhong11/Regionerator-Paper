@@ -12,11 +12,12 @@ package com.github.jikoo.regionerator.database;
 
 import com.github.jikoo.regionerator.ChunkFlagger;
 import com.github.jikoo.regionerator.Regionerator;
+import org.jetbrains.annotations.NotNull;
+
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.util.Collection;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Interface defining behavior for interacting with a database.

@@ -30,15 +30,12 @@ import java.util.stream.Stream;
 import java.util.zip.DataFormatException;
 
 public class AnvilRegion extends RegionInfo {
-
-	private static final int CHUNKS_PER_AXIS = 32;
 	// Regions are a square of chunks.
-	private static final int CHUNK_COUNT = CHUNKS_PER_AXIS * CHUNKS_PER_AXIS;
 	private static final String SUBDIR_BLOCK_DATA = "region";
 	private static final String SUBDIR_ENTITY_DATA = "entities";
-	static final String[] DATA_SUBDIRS = { SUBDIR_BLOCK_DATA, SUBDIR_ENTITY_DATA, "poi" };
+	public static final String[] DATA_SUBDIRS = { SUBDIR_BLOCK_DATA, SUBDIR_ENTITY_DATA, "poi" };
 
-	private final boolean[] pointerWipes = new boolean[CHUNK_COUNT];
+	private final boolean[] pointerWipes = new boolean[TOTAL_CHUNKS];
 	private final ByteBuffer volatileRegionHeader;
 	private final IntBuffer volatileChunkTimes;
 	private final ByteBuffer storedRegionHeader;
@@ -134,7 +131,7 @@ public class AnvilRegion extends RegionInfo {
 	}
 
 	private void storeMoreRecentTimes() {
-		for (int i = 0; i < CHUNK_COUNT; ++i) {
+		for (int i = 0; i < TOTAL_CHUNKS; ++i) {
 			int blockDataTime = storedChunkTimes.get(i);
 			int entityDataTime = volatileChunkTimes.get(i);
 			if (entityDataTime > blockDataTime) {
@@ -249,7 +246,7 @@ public class AnvilRegion extends RegionInfo {
 
 	@Override
 	public @NotNull Stream<ChunkInfo> getChunks() {
-		return IntStream.range(0, CHUNK_COUNT).mapToObj(index -> {
+		return IntStream.range(0, TOTAL_CHUNKS).mapToObj(index -> {
 			int localChunkX = RegionFile.unpackLocalX(index);
 			int localChunkZ = RegionFile.unpackLocalZ(index);
 			return getLocalChunk(localChunkX, localChunkZ);
@@ -258,7 +255,7 @@ public class AnvilRegion extends RegionInfo {
 
 	@Override
 	public int getChunksPerRegion() {
-		return CHUNK_COUNT;
+		return TOTAL_CHUNKS;
 	}
 
 	private class AnvilChunk extends ChunkInfo {

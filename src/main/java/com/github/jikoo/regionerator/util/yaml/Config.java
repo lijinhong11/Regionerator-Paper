@@ -11,19 +11,15 @@
 package com.github.jikoo.regionerator.util.yaml;
 
 import com.github.jikoo.regionerator.DebugLevel;
+import com.github.jikoo.regionerator.Regionerator;
 import com.google.common.collect.ImmutableMap;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Unmodifiable;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -55,7 +51,7 @@ public class Config extends ConfigYamlData {
 	private long cacheBatchDelay;
 	private int cacheMaxSize;
 
-	public Config(@NotNull Plugin plugin) {
+	public Config(@NotNull Regionerator plugin) {
 		super(plugin);
 		reload();
 	}
@@ -77,7 +73,7 @@ public class Config extends ConfigYamlData {
 
 		int secondsPerFlag = getInt("flagging.seconds-per-flag");
 		if (secondsPerFlag < 1) {
-			ticksPerFlag.set(10);
+			ticksPerFlag.set(20);
 		} else {
 			ticksPerFlag.set(20L * secondsPerFlag);
 		}
@@ -133,6 +129,22 @@ public class Config extends ConfigYamlData {
 	public DebugLevel getDebugLevel() {
 		synchronized (lock) {
 			return debugLevel;
+		}
+	}
+
+	public int getExpiredDaysInWorld(World world) {
+		if (raw().contains("worlds.default.days-till-flag-expires")) {
+			return getInt("worlds.default.days-till-flag-expires");
+		} else {
+			return raw().getInt("worlds." + world.getName() + ".days-till-flag-expires", -1);
+		}
+	}
+
+	public int getMinInteractionsInWorld(World world) {
+		if (raw().contains("worlds.default.min-interactions")) {
+			return getInt("worlds.default.min-interactions");
+		} else {
+			return raw().getInt("worlds." + world.getName() + ".days-till-flag-expires", -1);
 		}
 	}
 
@@ -253,5 +265,4 @@ public class Config extends ConfigYamlData {
 		}
 		return world;
 	}
-
 }

@@ -25,8 +25,8 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class VisitStatusCache extends CachingSupplier<VisitStatus> {
 
@@ -93,26 +93,22 @@ public class VisitStatusCache extends CachingSupplier<VisitStatus> {
 					return VisitStatus.UNKNOWN;
 				}
 
-				try {
-					// Query remaining hooks on main thread.
-					VisitStatus visitStatus = Bukkit.getScheduler().callSyncMethod(plugin, () -> {
-						for (Hook hook : syncHooks) {
-							if (hook.isChunkProtected(world.getWorld(), chunkX, chunkZ)) {
-								plugin.debug(DebugLevel.HIGH, () -> String.format("Chunk %s contains protections by %s",
-										flagData.getChunkId(), hook.getProtectionName()));
-								return VisitStatus.PROTECTED;
-							}
-						}
-						return VisitStatus.UNKNOWN;
-					}).get();
-					if (visitStatus == VisitStatus.PROTECTED) {
-						return VisitStatus.PROTECTED;
-					}
-				} catch (InterruptedException | ExecutionException e) {
-					// Usually this only occurs on shutdown. Execution should stop instead of continuing with unknown status.
-					throw new RuntimeException(e);
-				}
-			}
+                // Query remaining hooks on main thread.
+                AtomicReference<VisitStatus> visitStatus = new AtomicReference<>();
+                plugin.getScheduler().runNextTick(t -> {
+                    for (Hook hook : syncHooks) {
+                        if (hook.isChunkProtected(world.getWorld(), chunkX, chunkZ)) {
+                            plugin.debug(DebugLevel.HIGH, () -> String.format("Chunk %s contains protections by %s",
+                                    flagData.getChunkId(), hook.getProtectionName()));
+                            visitStatus.set(VisitStatus.PROTECTED);
+                        }
+                    }
+                    visitStatus.set(VisitStatus.UNKNOWN);
+                });
+                if (visitStatus.get() == VisitStatus.PROTECTED) {
+                    return VisitStatus.PROTECTED;
+                }
+            }
 
 			// If chunk is fresh and nothing else overwrote status, fall through to generated status.
 			if (isFresh) {

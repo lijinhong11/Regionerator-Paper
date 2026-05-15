@@ -13,7 +13,6 @@ package com.github.jikoo.regionerator;
 import com.github.jikoo.regionerator.database.DatabaseAdapter;
 import com.github.jikoo.regionerator.util.BatchExpirationLoadingCache;
 import com.github.jikoo.regionerator.util.yaml.Config;
-import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -64,7 +63,7 @@ public class ChunkFlagger {
 		flagCache.lazyExpireAll();
 
 		// Even if cache is stagnant, save every 10 minutes
-		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, flagCache::lazyExpireAll, 10 * 60 * 20, 10 * 60 * 20);
+		plugin.getScheduler().runTimerAsync(flagCache::lazyExpireAll, 10 * 60 * 20, 10 * 60 * 20);
 	}
 
 	/**

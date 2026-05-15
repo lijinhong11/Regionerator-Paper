@@ -10,10 +10,11 @@
 
 package com.github.jikoo.regionerator.listeners;
 
-import com.github.jikoo.planarwrappers.scheduler.AsyncBatch;
-import com.github.jikoo.planarwrappers.scheduler.DistributedTask;
+import com.github.jikoo.planarwrappers.scheduler.TickTimeUnit;
 import com.github.jikoo.planarwrappers.util.Coords;
 import com.github.jikoo.regionerator.Regionerator;
+import com.github.jikoo.regionerator.schedulers.AsyncBatch;
+import com.tcoded.folialib.wrapper.task.WrappedTask;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -27,15 +28,15 @@ import org.bukkit.event.world.ChunkPopulateEvent;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.UnmodifiableView;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.lang.reflect.Array;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 /**
  * Listener used to flag chunks as visited.
  */
+@SuppressWarnings("unchecked")
 public class FlaggingListener implements Listener {
 
 	private final @NotNull Regionerator plugin;
@@ -67,7 +68,7 @@ public class FlaggingListener implements Listener {
 	}
 
 	public void cancel() {
-		this.flagger.cancel(plugin);
+		this.flagger.cancel();
 		this.chunkPopulateBatch.purge();
 	}
 
@@ -99,10 +100,27 @@ public class FlaggingListener implements Listener {
 	/**
 	 * DistributedTask for periodically marking chunks near players as visited.
 	 */
-	private static class FlaggingRunnable extends DistributedTask<Player> {
+	private static class FlaggingRunnable implements Consumer<WrappedTask> {
+		private final Set<Player> allContent = new HashSet<>();
+		private final @NotNull Set<Player> @NotNull [] distributedContent;
+		private final @NotNull Consumer<Collection<Player>> consumer;
+		private WrappedTask taskInstance;
+		private int currentIndex = 0;
 
 		FlaggingRunnable(@NotNull Regionerator plugin) {
-			super(plugin.config().getFlaggingInterval() * 50, TimeUnit.MILLISECONDS, players -> {
+			long period = plugin.config().getFlaggingInterval() * 50;
+			int totalTicks = (int) TickTimeUnit.toTicks(period, TimeUnit.MILLISECONDS);
+			if (totalTicks < 2) {
+				throw new IllegalArgumentException("Period must be 2 ticks or greater");
+			} else {
+				distributedContent = (Set[]) Array.newInstance(this.allContent.getClass(), totalTicks);
+
+				for(int index = 0; index < this.distributedContent.length; ++index) {
+					this.distributedContent[index] = new HashSet<>();
+				}
+            }
+
+			consumer = players -> {
 				List<ChunkId> flagged = new ArrayList<>();
 				for (Player player : players) {
 					if (player.getGameMode().name().equals("SPECTATOR")
@@ -114,16 +132,66 @@ public class FlaggingListener implements Listener {
 				}
 
 				if (!flagged.isEmpty()) {
-					plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+					plugin.getScheduler().runAsync(t -> {
 						for (ChunkId chunk : flagged) {
 							plugin.getFlagger().flagChunksInRadius(chunk.worldName, chunk.chunkX, chunk.chunkZ);
 						}
 					});
 				}
-
-			});
+			};
 		}
 
+		public void add(@NotNull Player content) {
+			if (this.allContent.add(content)) {
+				int lowestSize = Integer.MAX_VALUE;
+				int lowestIndex = 0;
+
+				for(int index = 0; index < this.distributedContent.length; ++index) {
+					int size = this.distributedContent[index].size();
+					if (size < lowestSize) {
+						lowestSize = size;
+						lowestIndex = index;
+					}
+				}
+
+				this.distributedContent[lowestIndex].add(content);
+			}
+		}
+
+		public void remove(@NotNull Player content) {
+			if (this.allContent.remove(content)) {
+				for(Set<Player> contentPartition : this.distributedContent) {
+					if (contentPartition.remove(content)) {
+						break;
+					}
+				}
+			}
+
+		}
+
+		@Override
+		public void accept(WrappedTask task) {
+			this.taskInstance = task;
+			this.consumer.accept(Collections.unmodifiableSet(this.distributedContent[this.currentIndex]));
+			++this.currentIndex;
+			if (this.currentIndex >= this.distributedContent.length) {
+				this.currentIndex = 0;
+			}
+		}
+
+		public void schedule(@NotNull Regionerator plugin) {
+			if (this.taskInstance != null) {
+				this.taskInstance.cancel();
+			}
+
+			plugin.getScheduler().runTimer(this, 1L, 1L);
+		}
+
+		public void cancel() {
+			if (this.taskInstance != null) {
+				this.taskInstance.cancel();
+			}
+		}
 	}
 
 	private static class ChunkId {

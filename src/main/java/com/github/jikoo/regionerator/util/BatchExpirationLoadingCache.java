@@ -10,19 +10,17 @@
 
 package com.github.jikoo.regionerator.util;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.Map;
+import com.github.jikoo.regionerator.Regionerator;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import java.util.logging.Level;
 
 /**
  * A cache system designed to load values automatically and minimize write operations by expiring values in batches.
@@ -198,8 +196,9 @@ public class BatchExpirationLoadingCache<K, V> {
 							Thread.sleep(batchDelay);
 							expired.addAll(expirationMap.doExpiration());
 						} catch (InterruptedException e) {
-							System.err.println("Encountered exception while attempting to await larger batch:");
-							e.printStackTrace();
+							Regionerator.getInstance()
+									.getLogger()
+									.log(Level.SEVERE, "Encountered exception while attempting to await larger batch: ", e);
 						}
 					}
 
