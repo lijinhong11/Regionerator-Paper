@@ -228,6 +228,12 @@
         </exclusion>
       </exclusions>
     </dependency>
+    <dependency>
+      <groupId>com.github.Zrips</groupId>
+      <artifactId>Residence</artifactId>
+      <version>6.0.0.1</version>
+      <scope>provided</scope>
+    </dependency>
 
     <!-- Linear Region Required -->
     <dependency>
