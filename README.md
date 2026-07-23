@@ -2,11 +2,11 @@
 [![Build status](https://ci.appveyor.com/api/projects/status/4enx36sic8j3f0my?svg=true)](https://ci.appveyor.com/project/Jikoo/regionerator/build/artifacts)  
 A Bukkit plugin for gradually deleting unused area, allowing you to free up disk space and get rid of old builds or devastated land.
 
-<div style="font-size: 25px">
+<div style="font-size: 35px">
 <b>This is a fork version for 1.20.6+ and Paper/Folia servers!<br>
 Changes on many classes! So won't support Spigot</b>
 </div>
-
+  
 Please refer to [the wiki](https://github.com/Jikoo/Regionerator/wiki) for more information.
 
 This work is licensed under a [Creative Commons Attribution-ShareAlike 4.0 International License](http://creativecommons.org/licenses/by-sa/4.0/).  
