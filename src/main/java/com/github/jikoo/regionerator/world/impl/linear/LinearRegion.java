@@ -264,11 +264,11 @@ public class LinearRegion extends RegionInfo {
         }
 
         int[] bucketSizes = new int[gridSize * gridSize];
-        byte[] bucketCompressionLevels = new byte[gridSize * gridSize];
+        //byte[] bucketCompressionLevels = new byte[gridSize * gridSize];
         long[] bucketHashes = new long[gridSize * gridSize];
         for (int i = 0; i < gridSize * gridSize; i++) {
             bucketSizes[i] = buffer.getInt();
-            bucketCompressionLevels[i] = buffer.get();
+            //bucketCompressionLevels[i] = buffer.get();
             bucketHashes[i] = buffer.getLong();
         }
 
@@ -319,9 +319,7 @@ public class LinearRegion extends RegionInfo {
         dataStream.writeInt(regionZ);
 
         boolean[] chunkExistenceBitmap = new boolean[1024];
-        for (int i = 0; i < 1024; i++) {
-            chunkExistenceBitmap[i] = chunkExists[i];
-        }
+        System.arraycopy(chunkExists, 0, chunkExistenceBitmap, 0, 1024);
 
         writeSerializedExistenceBitmap(dataStream, chunkExistenceBitmap);
 

@@ -111,4 +111,4 @@ hooks:
 debug-level: LOW
 
 # Please don't mess with this, you may lose settings. Controls automatic updates to config layout.
-config-version: 2
+config-version: 3

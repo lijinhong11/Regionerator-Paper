@@ -16,7 +16,7 @@ import org.jetbrains.annotations.NotNull;
 
 final class ConfigUpdater {
 
-    private static final int CURRENT_CONFIG_VERSION = 2;
+    private static final int CURRENT_CONFIG_VERSION = 3;
 
     static void doUpdates(@NotNull Config config) {
         switch (config.raw().getInt("config-version", 0)) {
