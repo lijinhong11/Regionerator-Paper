@@ -1,8 +1,8 @@
 name: Regionerator
 main: com.github.jikoo.regionerator.Regionerator
 version: ${project.version}
-api-version: "1.20"
-author: Jikoo
+api-version: "1.21"
+authors: [Jikoo, lijinhong11(mmmjjkx)]
 folia-supported: true
 softdepend:
 - BentoBox

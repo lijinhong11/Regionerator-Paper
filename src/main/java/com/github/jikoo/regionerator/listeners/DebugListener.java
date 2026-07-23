@@ -1,62 +1,65 @@
 /*
- * Copyright (c) 2015-2021 by Jikoo.
+ * Regionerator
+ * Copyright (C) 2026 Jikoo and lijinhong11(mmmjjkx)
  *
- * Regionerator is licensed under a Creative Commons
- * Attribution-ShareAlike 4.0 International License.
+ * Regionerator is licensed under a
+ * Creative Commons Attribution-ShareAlike 4.0 International License.
  *
  * You should have received a copy of the license along with this
  * work. If not, see <http://creativecommons.org/licenses/by-sa/4.0/>.
  */
-
 package com.github.jikoo.regionerator.listeners;
 
 import com.github.jikoo.regionerator.DebugLevel;
 import com.github.jikoo.regionerator.Regionerator;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.logging.Level;
 import org.bukkit.Chunk;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.world.ChunkLoadEvent;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.HashSet;
-import java.util.Set;
-import java.util.logging.Level;
-
 /**
  * Listener used for additional debugging info.
  */
 public class DebugListener implements Listener {
 
-	private final @NotNull Regionerator plugin;
-	private final @NotNull Set<Long> badChunkHashes;
+    private final @NotNull Regionerator plugin;
+    private final @NotNull Set<Long> badChunkHashes;
 
-	public DebugListener(@NotNull Regionerator plugin) {
-		this.plugin = plugin;
-		this.badChunkHashes = new HashSet<>();
-	}
+    public DebugListener(@NotNull Regionerator plugin) {
+        this.plugin = plugin;
+        this.badChunkHashes = new HashSet<>();
+    }
 
-	@EventHandler
-	public void onChunkLoad(@NotNull ChunkLoadEvent event) {
-		if (badChunkHashes.contains(getHash(event.getChunk()))) {
-			plugin.debug(DebugLevel.HIGH, () -> String.format("Chunk loaded while being checked at %s, %s", event.getChunk().getX(), event.getChunk().getZ()));
-			plugin.debug(DebugLevel.EXTREME, () -> plugin.getLogger().log(Level.INFO, "Chunk load trace", new Throwable()));
-		}
-	}
+    @EventHandler
+    public void onChunkLoad(@NotNull ChunkLoadEvent event) {
+        if (badChunkHashes.contains(getHash(event.getChunk()))) {
+            plugin.debug(
+                    DebugLevel.HIGH,
+                    () -> String.format(
+                            "Chunk loaded while being checked at %s, %s",
+                            event.getChunk().getX(), event.getChunk().getZ()));
+            plugin.debug(
+                    DebugLevel.EXTREME, () -> plugin.getLogger().log(Level.INFO, "Chunk load trace", new Throwable()));
+        }
+    }
 
-	public void monitorChunk(int chunkX, int chunkZ) {
-		badChunkHashes.add(getHash(chunkX, chunkZ));
-	}
+    public void monitorChunk(int chunkX, int chunkZ) {
+        badChunkHashes.add(getHash(chunkX, chunkZ));
+    }
 
-	public void ignoreChunk(int chunkX, int chunkZ) {
-		badChunkHashes.remove(getHash(chunkX, chunkZ));
-	}
+    public void ignoreChunk(int chunkX, int chunkZ) {
+        badChunkHashes.remove(getHash(chunkX, chunkZ));
+    }
 
-	private long getHash(@NotNull Chunk chunk) {
-		return getHash(chunk.getX(), chunk.getZ());
-	}
+    private long getHash(@NotNull Chunk chunk) {
+        return getHash(chunk.getX(), chunk.getZ());
+    }
 
-	private long getHash(long x, long z) {
-		return z ^ (x << 32);
-	}
-
+    private long getHash(long x, long z) {
+        return z ^ (x << 32);
+    }
 }

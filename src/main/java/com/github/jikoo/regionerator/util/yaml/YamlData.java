@@ -1,17 +1,22 @@
 /*
- * Copyright (c) 2015-2021 by Jikoo.
+ * Regionerator
+ * Copyright (C) 2026 Jikoo and lijinhong11(mmmjjkx)
  *
- * Regionerator is licensed under a Creative Commons
- * Attribution-ShareAlike 4.0 International License.
+ * Regionerator is licensed under a
+ * Creative Commons Attribution-ShareAlike 4.0 International License.
  *
  * You should have received a copy of the license along with this
  * work. If not, see <http://creativecommons.org/licenses/by-sa/4.0/>.
  */
-
 package com.github.jikoo.regionerator.util.yaml;
 
 import com.github.jikoo.regionerator.Regionerator;
 import com.tcoded.folialib.wrapper.task.WrappedTask;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
+import java.util.logging.Level;
 import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.serialization.ConfigurationSerializable;
@@ -20,121 +25,121 @@ import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.List;
-import java.util.Objects;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
-import java.util.logging.Level;
-
 @SuppressWarnings({"unused", "SameParameterValue"})
 public abstract class YamlData {
 
-	final @NotNull Regionerator plugin;
-	private final @NotNull Supplier<FileConfiguration> loadSupplier;
-	private final @NotNull Consumer<FileConfiguration> saveConsumer;
-	private FileConfiguration storage;
-	private boolean dirty = false;
-	private WrappedTask saveTask;
+    final @NotNull Regionerator plugin;
+    private final @NotNull Supplier<FileConfiguration> loadSupplier;
+    private final @NotNull Consumer<FileConfiguration> saveConsumer;
+    private FileConfiguration storage;
+    private boolean dirty = false;
+    private WrappedTask saveTask;
 
-	public YamlData(
-			@NotNull Regionerator plugin,
-			@NotNull Supplier<FileConfiguration> loadSupplier,
-			@NotNull Consumer<FileConfiguration> saveConsumer) {
-		this.plugin = plugin;
-		this.loadSupplier = loadSupplier;
-		this.saveConsumer = saveConsumer;
-		this.storage = loadSupplier.get();
-	}
+    public YamlData(
+            @NotNull Regionerator plugin,
+            @NotNull Supplier<FileConfiguration> loadSupplier,
+            @NotNull Consumer<FileConfiguration> saveConsumer) {
+        this.plugin = plugin;
+        this.loadSupplier = loadSupplier;
+        this.saveConsumer = saveConsumer;
+        this.storage = loadSupplier.get();
+    }
 
-	public void reload() {
-		this.storage = loadSupplier.get();
-	}
+    public void reload() {
+        this.storage = loadSupplier.get();
+    }
 
-	void set(@NotNull String path, @Nullable Object value) {
-		Object existing = this.storage.get(path, null);
-		if (Objects.equals(value, existing)) {
-			return;
-		}
-		this.storage.set(path, value);
-		this.dirty = true;
-		save();
-	}
+    void set(@NotNull String path, @Nullable Object value) {
+        Object existing = this.storage.get(path, null);
+        if (Objects.equals(value, existing)) {
+            return;
+        }
+        this.storage.set(path, value);
+        this.dirty = true;
+        save();
+    }
 
-	@Nullable Object get(@NotNull String path) {
-		return this.storage.get(path);
-	}
+    @Nullable
+    Object get(@NotNull String path) {
+        return this.storage.get(path);
+    }
 
-	@Nullable String getString(@NotNull String path) {
-		return this.storage.getString(path);
-	}
+    @Nullable
+    String getString(@NotNull String path) {
+        return this.storage.getString(path);
+    }
 
-	int getInt(@NotNull String path) {
-		return this.storage.getInt(path);
-	}
+    int getInt(@NotNull String path) {
+        return this.storage.getInt(path);
+    }
 
-	boolean getBoolean(@NotNull String path) {
-		return this.storage.getBoolean(path);
-	}
+    boolean getBoolean(@NotNull String path) {
+        return this.storage.getBoolean(path);
+    }
 
-	double getDouble(@NotNull String path) {
-		return this.storage.getDouble(path);
-	}
+    double getDouble(@NotNull String path) {
+        return this.storage.getDouble(path);
+    }
 
-	long getLong(@NotNull String path) {
-		return this.storage.getLong(path);
-	}
+    long getLong(@NotNull String path) {
+        return this.storage.getLong(path);
+    }
 
-	@NotNull List<String> getStringList(@NotNull String path) {
-		return this.storage.getStringList(path);
-	}
+    @NotNull
+    List<String> getStringList(@NotNull String path) {
+        return this.storage.getStringList(path);
+    }
 
-	<T> @Nullable T getObject(@NotNull String path, @NotNull Class<T> clazz) {
-		return this.storage.getObject(path, clazz);
-	}
+    <T> @Nullable T getObject(@NotNull String path, @NotNull Class<T> clazz) {
+        return this.storage.getObject(path, clazz);
+    }
 
-	<T extends ConfigurationSerializable> @Nullable T getSerializable(@NotNull String path, @NotNull Class<T> clazz) {
-		return this.storage.getSerializable(path, clazz);
-	}
+    <T extends ConfigurationSerializable> @Nullable T getSerializable(@NotNull String path, @NotNull Class<T> clazz) {
+        return this.storage.getSerializable(path, clazz);
+    }
 
-	@Nullable Vector getVector(@NotNull String path) {
-		return this.storage.getVector(path);
-	}
+    @Nullable
+    Vector getVector(@NotNull String path) {
+        return this.storage.getVector(path);
+    }
 
-	@Nullable ItemStack getItemStack(@NotNull String path) {
-		return this.storage.getItemStack(path);
-	}
+    @Nullable
+    ItemStack getItemStack(@NotNull String path) {
+        return this.storage.getItemStack(path);
+    }
 
-	@Nullable Location getLocation(@NotNull String path) {
-		return this.storage.getLocation(path);
-	}
+    @Nullable
+    Location getLocation(@NotNull String path) {
+        return this.storage.getLocation(path);
+    }
 
-	@NotNull FileConfiguration raw() {
-		return this.storage;
-	}
+    @NotNull
+    FileConfiguration raw() {
+        return this.storage;
+    }
 
-	void save() {
-		if (saveTask != null || !dirty) {
-			return;
-		}
-		try {
-			saveTask = plugin.getScheduler().runTimer(this::saveNow, 1L,200L);
-		} catch (IllegalStateException e) {
-			// Plugin is being disabled, cannot schedule tasks
-			saveNow();
-		}
-	}
+    void save() {
+        if (saveTask != null || !dirty) {
+            return;
+        }
+        try {
+            saveTask = plugin.getScheduler().runTimer(this::saveNow, 1L, 200L);
+        } catch (IllegalStateException e) {
+            // Plugin is being disabled, cannot schedule tasks
+            saveNow();
+        }
+    }
 
-	private void saveNow() {
-		if (!this.dirty) {
-			return;
-		}
+    private void saveNow() {
+        if (!this.dirty) {
+            return;
+        }
 
-		try {
-			this.saveConsumer.accept(this.storage);
-			this.dirty = false;
-		} catch (RuntimeException e) {
-			plugin.getLogger().log(Level.WARNING, "Error saving yaml data", e);
-		}
-	}
-
+        try {
+            this.saveConsumer.accept(this.storage);
+            this.dirty = false;
+        } catch (RuntimeException e) {
+            plugin.getLogger().log(Level.WARNING, "Error saving yaml data", e);
+        }
+    }
 }

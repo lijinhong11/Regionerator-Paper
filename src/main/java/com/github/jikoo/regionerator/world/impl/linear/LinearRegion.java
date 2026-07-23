@@ -1,6 +1,16 @@
+/*
+ * Regionerator
+ * Copyright (C) 2026 Jikoo and lijinhong11(mmmjjkx)
+ *
+ * Regionerator is licensed under a
+ * Creative Commons Attribution-ShareAlike 4.0 International License.
+ *
+ * You should have received a copy of the license along with this
+ * work. If not, see <http://creativecommons.org/licenses/by-sa/4.0/>.
+ */
 package com.github.jikoo.regionerator.world.impl.linear;
 
-import com.github.jikoo.regionerator.Regionerator;
+import com.github.jikoo.regionerator.DebugLevel;
 import com.github.jikoo.regionerator.world.ChunkInfo;
 import com.github.jikoo.regionerator.world.RegionInfo;
 import com.github.jikoo.regionerator.world.WorldInfo;
@@ -8,26 +18,23 @@ import com.github.jikoo.regionerator.world.impl.anvil.RegionFile;
 import com.github.luben.zstd.ZstdInputStream;
 import com.github.luben.zstd.ZstdOutputStream;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.mojang.logging.LogUtils;
-import net.jpountz.lz4.LZ4Compressor;
-import net.jpountz.lz4.LZ4Factory;
-import net.jpountz.lz4.LZ4FastDecompressor;
-import net.minecraft.world.level.ChunkPos;
-import net.openhft.hashing.LongHashFunction;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-
-import javax.annotation.Nullable;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.time.Clock;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.LockSupport;
+import java.time.Instant;
+import java.util.BitSet;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import net.jpountz.lz4.LZ4Compressor;
+import net.jpountz.lz4.LZ4Factory;
+import net.jpountz.lz4.LZ4FastDecompressor;
+import net.openhft.hashing.LongHashFunction;
+import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Source is copied from LuminolMC/Luminol<br>
@@ -43,29 +50,54 @@ public class LinearRegion extends RegionInfo {
     private static final int HEADER_SIZE = 27;
     private static final int FOOTER_SIZE = 8;
 
-    private static final Logger LOGGER = LogUtils.getLogger();
-
     private byte[][] bucketBuffers;
     private final byte[][] buffer = new byte[1024][];
     private final int[] bufferUncompressedSize = new int[1024];
 
-    private final boolean[] orphaned = new boolean[1024];
+    private final boolean[] chunkExists = new boolean[1024];
+    private final BitSet pendingOrphans = new BitSet(1024);
 
     private final long[] chunkTimestamps = new long[1024];
-    private final Object markedToSaveLock = new Object();
 
     private final LZ4Compressor compressor;
     private final LZ4FastDecompressor decompressor;
 
     private boolean markedToSave = false;
-    private boolean close = false;
-
     public Path regionFile;
 
     private final int compressionLevel;
+    private final int regionX;
+    private final int regionZ;
+    private final @Nullable LuminolRegionFileBridge bridge;
     private int gridSize = 8;
     private int bucketSize = 4;
-    private final Thread bindThread;
+
+    @ApiStatus.Internal
+    @TestOnly
+    public LinearRegion(WorldInfo worldInfo, Path path, int compressionLevel, int lowestRegionX, int lowestRegionZ) {
+        this(worldInfo, path, compressionLevel, lowestRegionX, lowestRegionZ, null);
+    }
+
+    LinearRegion(
+            WorldInfo worldInfo,
+            Path path,
+            int compressionLevel,
+            int lowestRegionX,
+            int lowestRegionZ,
+            @Nullable LuminolRegionFileBridge bridge) {
+        super(
+                worldInfo,
+                Math.multiplyExact(lowestRegionX, CHUNKS_PER_AXIS),
+                Math.multiplyExact(lowestRegionZ, CHUNKS_PER_AXIS));
+        this.regionFile = path;
+        this.compressionLevel = compressionLevel;
+        this.regionX = lowestRegionX;
+        this.regionZ = lowestRegionZ;
+        this.bridge = bridge;
+
+        this.compressor = LZ4Factory.fastestInstance().fastCompressor();
+        this.decompressor = LZ4Factory.fastestInstance().fastDecompressor();
+    }
 
     private int chunkToBucketIdx(int chunkX, int chunkZ) {
         int bx = chunkX / bucketSize, bz = chunkZ / bucketSize;
@@ -79,9 +111,8 @@ public class LinearRegion extends RegionInfo {
 
         if (bucketBuffers == null) return;
         if (bucketBuffers[idx] != null) {
-            try {
-                ByteArrayInputStream bucketByteStream = new ByteArrayInputStream(bucketBuffers[idx]);
-                ZstdInputStream zstdStream = new ZstdInputStream(bucketByteStream);
+            try (ByteArrayInputStream bucketByteStream = new ByteArrayInputStream(bucketBuffers[idx]);
+                    ZstdInputStream zstdStream = new ZstdInputStream(bucketByteStream)) {
                 ByteBuffer bucketBuffer = ByteBuffer.wrap(zstdStream.readAllBytes());
 
                 int bx = chunkX / bucketSize, bz = chunkZ / bucketSize;
@@ -93,6 +124,7 @@ public class LinearRegion extends RegionInfo {
                         int chunkSize = bucketBuffer.getInt();
                         long timestamp = bucketBuffer.getLong();
                         this.chunkTimestamps[chunkIndex] = timestamp;
+                        this.chunkExists[chunkIndex] = chunkSize > 0;
 
                         if (chunkSize > 0) {
                             byte[] chunkData = new byte[chunkSize - 8];
@@ -100,17 +132,17 @@ public class LinearRegion extends RegionInfo {
 
                             int maxCompressedLength = this.compressor.maxCompressedLength(chunkData.length);
                             byte[] compressed = new byte[maxCompressedLength];
-                            int compressedLength = this.compressor.compress(chunkData, 0, chunkData.length, compressed, 0, maxCompressedLength);
+                            int compressedLength = this.compressor.compress(
+                                    chunkData, 0, chunkData.length, compressed, 0, maxCompressedLength);
                             byte[] finalCompressed = new byte[compressedLength];
                             System.arraycopy(compressed, 0, finalCompressed, 0, compressedLength);
 
-                            // TODO: Optimization - return the requested chunk immediately to save on one LZ4 decompression
                             this.buffer[chunkIndex] = finalCompressed;
                             this.bufferUncompressedSize[chunkIndex] = chunkData.length;
                         }
                     }
                 }
-            } catch (IOException ex) {
+            } catch (IOException | RuntimeException ex) {
                 throw new RuntimeException("Region file corrupted: " + regionFile + " bucket: " + idx, ex);
             }
             bucketBuffers[idx] = null;
@@ -123,16 +155,15 @@ public class LinearRegion extends RegionInfo {
     @CanIgnoreReturnValue
     public synchronized boolean read() {
         if (regionFileOpen) return true;
-        regionFileOpen = true;
 
         File regionFile = new File(this.regionFile.toString());
 
         if (!regionFile.canRead()) {
-            this.bindThread.start();
             return false;
         }
 
         try {
+            if (bridge != null) bridge.synchronize();
             byte[] fileContent = Files.readAllBytes(this.regionFile);
             ByteBuffer buffer = ByteBuffer.wrap(fileContent);
 
@@ -154,7 +185,7 @@ public class LinearRegion extends RegionInfo {
                 throw new RuntimeException("Invalid version: " + version + " file " + this.regionFile);
             }
 
-            this.bindThread.start();
+            regionFileOpen = true;
         } catch (IOException e) {
             throw new RuntimeException("Failed to open region file " + this.regionFile, e);
         }
@@ -172,7 +203,8 @@ public class LinearRegion extends RegionInfo {
         int dataCount = buffer.getInt();
         long fileLength = this.regionFile.toFile().length();
         if (fileLength != HEADER_SIZE + dataCount + FOOTER_SIZE) {
-            throw new IOException("Invalid file length: " + this.regionFile + " " + fileLength + " " + (HEADER_SIZE + dataCount + FOOTER_SIZE));
+            throw new IOException("Invalid file length: " + this.regionFile + " " + fileLength + " "
+                    + (HEADER_SIZE + dataCount + FOOTER_SIZE));
         }
 
         buffer.position(buffer.position() + 8); // Skip data hash (Long): Unused.
@@ -204,6 +236,7 @@ public class LinearRegion extends RegionInfo {
 
                 this.buffer[i] = finalCompressed;
                 this.bufferUncompressedSize[i] = size;
+                this.chunkExists[i] = true;
                 this.chunkTimestamps[i] = getTimestamp(); // Use current timestamp as we don't have the original
             }
         }
@@ -219,24 +252,23 @@ public class LinearRegion extends RegionInfo {
         buffer.getInt(); // Skip region_x (Int)
         buffer.getInt(); // Skip region_z (Int)
 
-        //boolean[] chunkExistenceBitmap = deserializeExistenceBitmap(buffer);
+        boolean[] chunkExistenceBitmap = deserializeExistenceBitmap(buffer);
+        System.arraycopy(chunkExistenceBitmap, 0, chunkExists, 0, chunkExists.length);
 
         while (true) {
             byte featureNameLength = buffer.get();
             if (featureNameLength == 0) break;
             byte[] featureNameBytes = new byte[featureNameLength];
             buffer.get(featureNameBytes);
-            //String featureName = new String(featureNameBytes);
-            buffer.getInt(); // skip feature value
-            // System.out.println("NBT Feature: " + featureName + " = " + featureValue);
+            buffer.getInt();
         }
 
         int[] bucketSizes = new int[gridSize * gridSize];
-        //byte[] bucketCompressionLevels = new byte[gridSize * gridSize];
+        byte[] bucketCompressionLevels = new byte[gridSize * gridSize];
         long[] bucketHashes = new long[gridSize * gridSize];
         for (int i = 0; i < gridSize * gridSize; i++) {
             bucketSizes[i] = buffer.getInt();
-            //bucketCompressionLevels[i] = buffer.get();
+            bucketCompressionLevels[i] = buffer.get();
             bucketHashes[i] = buffer.getLong();
         }
 
@@ -253,93 +285,18 @@ public class LinearRegion extends RegionInfo {
         }
 
         long footerSuperBlock = buffer.getLong();
-        if (footerSuperBlock != SUPERBLOCK)
-            throw new IOException("Footer superblock invalid " + this.regionFile);
-    }
-
-    public LinearRegion(WorldInfo worldInfo, Path path, int compressionLevel, int lowestRegionX, int lowestRegionZ) {
-        super(worldInfo, lowestRegionX, lowestRegionZ);
-        Runnable flushCheck = () -> {
-            while (!close) {
-                synchronized (saveLock) {
-                    if (markedToSave && activeSaveThreads < SAVE_THREAD_MAX_COUNT) {
-                        activeSaveThreads++;
-                        Runnable flushOperation = () -> {
-                            try {
-                                flush();
-                            } catch (IOException ex) {
-                                LOGGER.error("Region file {} flush failed", this.regionFile.toAbsolutePath(), ex);
-                            } finally {
-                                synchronized (saveLock) {
-                                    activeSaveThreads--;
-                                }
-                            }
-                        };
-
-                        Thread saveThread = USE_VIRTUAL_THREAD ?
-                                Thread.ofVirtual().name("Linear IO - " + LinearRegion.this.hashCode()).unstarted(flushOperation) :
-                                Thread.ofPlatform().name("Linear IO - " + LinearRegion.this.hashCode()).unstarted(flushOperation);
-                        saveThread.setPriority(Thread.NORM_PRIORITY - 3);
-                        saveThread.start();
-                    }
-                }
-                LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(SAVE_DELAY_MS));
-            }
-        };
-        this.bindThread = USE_VIRTUAL_THREAD ? Thread.ofVirtual().unstarted(flushCheck) : Thread.ofPlatform().unstarted(flushCheck);
-        this.bindThread.setName("Linear IO Schedule - " + this.hashCode());
-        this.regionFile = path;
-        this.compressionLevel = compressionLevel;
-
-        this.compressor = LZ4Factory.fastestInstance().fastCompressor();
-        this.decompressor = LZ4Factory.fastestInstance().fastDecompressor();
+        if (footerSuperBlock != SUPERBLOCK) throw new IOException("Footer superblock invalid " + this.regionFile);
     }
 
     private synchronized void markToSave() {
-        synchronized (markedToSaveLock) {
-            markedToSave = true;
-        }
+        markedToSave = true;
     }
 
     private synchronized boolean isMarkedToSave() {
-        synchronized (markedToSaveLock) {
-            if (markedToSave) {
-                markedToSave = false;
-                return true;
-            }
-            return false;
-        }
+        if (!markedToSave) return false;
+        markedToSave = false;
+        return true;
     }
-
-    public static int SAVE_THREAD_MAX_COUNT = 6;
-    public static int SAVE_DELAY_MS = 100;
-    public static boolean USE_VIRTUAL_THREAD = true;
-    private static final Object saveLock = new Object();
-    private static int activeSaveThreads = 0;
-
-    /*public void run() {
-        while (!close) {
-            synchronized (saveLock) {
-                if (markedToSave && activeSaveThreads < SAVE_THREAD_MAX_COUNT) {
-                    activeSaveThreads++;
-                    Thread saveThread = new Thread(() -> {
-                        try {
-                            flush();
-                        } catch (IOException ex) {
-                            LOGGER.error("Region file " + this.regionFile.toAbsolutePath() + " flush failed", ex);
-                        } finally {
-                            synchronized (saveLock) {
-                                activeSaveThreads--;
-                            }
-                        }
-                    }, "RegionFileFlush");
-                    saveThread.setPriority(Thread.NORM_PRIORITY - 3);
-                    saveThread.start();
-                }
-            }
-            LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(SAVE_DELAY_MS));
-        }
-    }*/
 
     public synchronized void flush() throws IOException {
         if (!isMarkedToSave()) return;
@@ -358,34 +315,18 @@ public class LinearRegion extends RegionInfo {
         dataStream.writeLong(timestamp);
         dataStream.writeByte(gridSize);
 
-        String fileName = regionFile.getFileName().toString();
-        String[] parts = fileName.split("\\.");
-        int regionX = 0;
-        int regionZ = 0;
-        try {
-            if (parts.length >= 4) {
-                regionX = Integer.parseInt(parts[1]);
-                regionZ = Integer.parseInt(parts[2]);
-            } else {
-                LOGGER.warn("Unexpected file name format: " + fileName);
-            }
-        } catch (NumberFormatException e) {
-            LOGGER.error("Failed to parse region coordinates from file name: " + fileName, e);
-        }
-
         dataStream.writeInt(regionX);
         dataStream.writeInt(regionZ);
 
         boolean[] chunkExistenceBitmap = new boolean[1024];
         for (int i = 0; i < 1024; i++) {
-            chunkExistenceBitmap[i] = (this.bufferUncompressedSize[i] > 0);
+            chunkExistenceBitmap[i] = chunkExists[i];
         }
 
         writeSerializedExistenceBitmap(dataStream, chunkExistenceBitmap);
 
         writeNBTFeatures(dataStream);
 
-        //int bucketMisses = 0;
         byte[][] buckets = new byte[gridSize * gridSize][];
         for (int bx = 0; bx < gridSize; bx++) {
             for (int bz = 0; bz < gridSize; bz++) {
@@ -393,8 +334,6 @@ public class LinearRegion extends RegionInfo {
                     buckets[bx * gridSize + bz] = bucketBuffers[bx * gridSize + bz];
                     continue;
                 }
-                //bucketMisses++;
-
                 ByteArrayOutputStream bucketStream = new ByteArrayOutputStream();
                 ZstdOutputStream zstdStream = new ZstdOutputStream(bucketStream, this.compressionLevel);
                 DataOutputStream bucketDataStream = new DataOutputStream(zstdStream);
@@ -406,7 +345,8 @@ public class LinearRegion extends RegionInfo {
                         if (this.bufferUncompressedSize[chunkIndex] > 0) {
                             hasData = true;
                             byte[] chunkData = new byte[this.bufferUncompressedSize[chunkIndex]];
-                            this.decompressor.decompress(this.buffer[chunkIndex], 0, chunkData, 0, this.bufferUncompressedSize[chunkIndex]);
+                            this.decompressor.decompress(
+                                    this.buffer[chunkIndex], 0, chunkData, 0, this.bufferUncompressedSize[chunkIndex]);
                             bucketDataStream.writeInt(chunkData.length + 8);
                             bucketDataStream.writeLong(this.chunkTimestamps[chunkIndex]);
                             bucketDataStream.write(chunkData);
@@ -449,56 +389,11 @@ public class LinearRegion extends RegionInfo {
 
         fileStream.close();
         Files.move(tempFile.toPath(), this.regionFile, StandardCopyOption.REPLACE_EXISTING);
-//System.out.println("writeStart REGION FILE FLUSH " + (System.nanoTime() - writeStart) + " misses: " + bucketMisses);
     }
 
     private void writeNBTFeatures(DataOutputStream dataStream) throws IOException {
         dataStream.writeByte(0); // End of NBT features
     }
-
-    public static final int MAX_CHUNK_SIZE = 500 * 1024 * 1024; // Abomination - prevent chunk dupe
-
-    @Deprecated
-    private synchronized void write(ChunkPos pos, ByteBuffer buffer) {
-        if (!read()) {
-            return;
-        }
-
-        openBucket(pos.x, pos.z);
-        try {
-            byte[] b = toByteArray(new ByteArrayInputStream(buffer.array()));
-            int uncompressedSize = b.length;
-
-            if (uncompressedSize > MAX_CHUNK_SIZE) {
-                LOGGER.error("Chunk dupe attempt {}", this.regionFile);
-                clear(pos);
-            } else {
-                int maxCompressedLength = this.compressor.maxCompressedLength(b.length);
-                byte[] compressed = new byte[maxCompressedLength];
-                int compressedLength = this.compressor.compress(b, 0, b.length, compressed, 0, maxCompressedLength);
-                b = new byte[compressedLength];
-                System.arraycopy(compressed, 0, b, 0, compressedLength);
-
-                int index = getChunkIndex(pos.x, pos.z);
-                this.buffer[index] = b;
-                this.chunkTimestamps[index] = getTimestamp();
-                this.bufferUncompressedSize[getChunkIndex(pos.x, pos.z)] = uncompressedSize;
-            }
-        } catch (IOException e) {
-            LOGGER.error("Chunk write IOException {} {}", e, this.regionFile);
-            try {
-                acceptOrRethrow(e);
-                return;
-            } catch (IOException ex) {
-                throw new RuntimeException(ex);
-            }
-        }
-        markToSave();
-    }
-
-    /*
-     * Regionerator Section
-     */
 
     @Override
     public synchronized boolean write() throws IOException {
@@ -506,49 +401,31 @@ public class LinearRegion extends RegionInfo {
             return false;
         }
 
-        cleanupChunksBeforeWrite();
-
-        try {
-            flush();
+        if (bridge != null && bridge.clear(regionX, regionZ, pendingOrphans)) {
+            pendingOrphans.clear();
+            markedToSave = false;
             return true;
-        } catch (IOException ex) {
-            LOGGER.error("Failed to write region file: {}", this.regionFile.toAbsolutePath(), ex);
-            throw ex;
-        }
-    }
-
-    private void cleanupChunksBeforeWrite() {
-        long now = System.currentTimeMillis() / 1000L;
-
-        for (int i = 0; i < bufferUncompressedSize.length; i++) {
-            if (bufferUncompressedSize[i] <= 0) {
-                continue;
-            }
-
-            long timestamp = chunkTimestamps[i];
-
-            if (timestamp == 0) {
-                buffer[i] = null;
-                bufferUncompressedSize[i] = 0;
-                continue;
-            }
-
-            if (shouldCleanupChunk(timestamp, now)) {
-                buffer[i] = null;
-                bufferUncompressedSize[i] = 0;
-                chunkTimestamps[i] = 0;
-            }
-        }
-    }
-
-    private boolean shouldCleanupChunk(long timestamp, long now) {
-        int expiredDays = Regionerator.getInstance().config().getExpiredDaysInWorld(getWorld());
-        if (expiredDays == -1) {
-            return false;
         }
 
-        long seconds = TimeUnit.DAYS.convert(expiredDays, TimeUnit.SECONDS);
-        return now - timestamp >= seconds;
+        boolean allEmpty = true;
+        for (boolean exists : chunkExists) {
+            if (exists) {
+                allEmpty = false;
+                break;
+            }
+        }
+
+        if (allEmpty) {
+            Files.deleteIfExists(regionFile);
+            getPlugin()
+                    .debug(
+                            DebugLevel.HIGH,
+                            () -> String.format("Deleted region %s with empty header", getIdentifier()));
+            return true;
+        }
+
+        flush();
+        return true;
     }
 
     @Override
@@ -582,70 +459,17 @@ public class LinearRegion extends RegionInfo {
 
         @Override
         public boolean isOrphaned() {
-            int index = getChunkIndex(getLocalChunkX(), getLocalChunkZ());
-            return orphaned[index];
+            return isChunkOrphaned(getLocalChunkX(), getLocalChunkZ());
         }
 
         @Override
         public void setOrphaned() {
-            int index = getChunkIndex(getLocalChunkX(), getLocalChunkZ());
-            buffer[index] = null;
-            bufferUncompressedSize[index] = 0;
-            chunkTimestamps[index] = getTimestamp();
-            orphaned[index] = true;
-            markToSave();
+            orphanChunk(getLocalChunkX(), getLocalChunkZ());
         }
 
         @Override
         public long getLastModified() {
-            return chunkTimestamps[getChunkIndex(getLocalChunkX(), getLocalChunkZ())] * 1000L;
-        }
-    }
-
-    private byte[] toByteArray(InputStream in) throws IOException {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        byte[] tempBuffer = new byte[4096];
-
-        int length;
-        while ((length = in.read(tempBuffer)) >= 0) {
-            out.write(tempBuffer, 0, length);
-        }
-
-        return out.toByteArray();
-    }
-
-    @Nullable
-    @Deprecated
-    public synchronized DataInputStream getChunkDataInputStream(ChunkPos pos) {
-        read();
-        openBucket(pos.x, pos.z);
-
-        if (this.bufferUncompressedSize[getChunkIndex(pos.x, pos.z)] != 0) {
-            byte[] content = new byte[bufferUncompressedSize[getChunkIndex(pos.x, pos.z)]];
-            this.decompressor.decompress(this.buffer[getChunkIndex(pos.x, pos.z)], 0, content, 0, bufferUncompressedSize[getChunkIndex(pos.x, pos.z)]);
-            return new DataInputStream(new ByteArrayInputStream(content));
-        }
-        return null;
-    }
-
-    public synchronized void clear(ChunkPos pos) {
-        read();
-        openBucket(pos.x, pos.z);
-        int i = getChunkIndex(pos.x, pos.z);
-        this.buffer[i] = null;
-        this.bufferUncompressedSize[i] = 0;
-        this.chunkTimestamps[i] = getTimestamp();
-        markToSave();
-    }
-
-    @Deprecated
-    public synchronized void close() throws IOException {
-        read();
-        close = true;
-        try {
-            flush();
-        } catch (IOException e) {
-            throw new IOException("Region flush IOException " + e + " " + this.regionFile);
+            return getChunkLastModified(getLocalChunkX(), getLocalChunkZ());
         }
     }
 
@@ -654,10 +478,31 @@ public class LinearRegion extends RegionInfo {
     }
 
     private static int getTimestamp() {
-        return (int) Clock.systemUTC().instant().getEpochSecond();
+        return (int) Instant.now().getEpochSecond();
     }
 
-    @Deprecated
+    synchronized boolean isChunkOrphaned(int localChunkX, int localChunkZ) {
+        openBucket(localChunkX, localChunkZ);
+        int index = getChunkIndex(localChunkX, localChunkZ);
+        return !chunkExists[index];
+    }
+
+    synchronized long getChunkLastModified(int localChunkX, int localChunkZ) {
+        openBucket(localChunkX, localChunkZ);
+        return chunkTimestamps[getChunkIndex(localChunkX, localChunkZ)] * 1000L;
+    }
+
+    synchronized void orphanChunk(int localChunkX, int localChunkZ) {
+        openBucket(localChunkX, localChunkZ);
+        int index = getChunkIndex(localChunkX, localChunkZ);
+        buffer[index] = null;
+        bufferUncompressedSize[index] = 0;
+        chunkExists[index] = false;
+        pendingOrphans.set(index);
+        chunkTimestamps[index] = getTimestamp();
+        markToSave();
+    }
+
     private boolean[] deserializeExistenceBitmap(ByteBuffer buffer) {
         boolean[] result = new boolean[1024];
         for (int i = 0; i < 128; i++) {

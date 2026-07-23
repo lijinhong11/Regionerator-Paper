@@ -1,7 +1,14 @@
+/*
+ * Regionerator
+ * Copyright (C) 2026 Jikoo and lijinhong11(mmmjjkx)
+ *
+ * Regionerator is licensed under a
+ * Creative Commons Attribution-ShareAlike 4.0 International License.
+ *
+ * You should have received a copy of the license along with this
+ * work. If not, see <http://creativecommons.org/licenses/by-sa/4.0/>.
+ */
 package com.github.jikoo.regionerator.activity;
-
-import org.bukkit.Chunk;
-import org.bukkit.World;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -9,6 +16,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import org.bukkit.Chunk;
+import org.bukkit.World;
 
 public class ChunkActivityTracker {
     private final ConcurrentHashMap<Chunk, ActivityWindow> activityMap = new ConcurrentHashMap<>();

@@ -1,13 +1,13 @@
 /*
- * Copyright (c) 2015-2021 by Jikoo.
+ * Regionerator
+ * Copyright (C) 2026 Jikoo and lijinhong11(mmmjjkx)
  *
- * Regionerator is licensed under a Creative Commons
- * Attribution-ShareAlike 4.0 International License.
+ * Regionerator is licensed under a
+ * Creative Commons Attribution-ShareAlike 4.0 International License.
  *
  * You should have received a copy of the license along with this
  * work. If not, see <http://creativecommons.org/licenses/by-sa/4.0/>.
  */
-
 package com.github.jikoo.regionerator.listeners;
 
 import com.github.jikoo.regionerator.DeletionRunnable;
@@ -21,44 +21,44 @@ import org.jetbrains.annotations.NotNull;
 
 public class WorldListener implements Listener {
 
-	private final Regionerator plugin;
+    private final Regionerator plugin;
 
-	public WorldListener(Regionerator plugin) {
-		this.plugin = plugin;
-	}
+    public WorldListener(Regionerator plugin) {
+        this.plugin = plugin;
+    }
 
-	@EventHandler
-	public void onWorldLoad(@NotNull WorldLoadEvent event) {
-		String name = event.getWorld().getName();
-		for (String worldName : plugin.config().enabledWorlds()) {
-			if (worldName.equals(name)) {
-				// Name is correctly capitalized, do nothing.
-				return;
-			}
-			if (!worldName.equalsIgnoreCase(name)) {
-				// Names do not match, skip.
-				continue;
-			}
+    @EventHandler
+    public void onWorldLoad(@NotNull WorldLoadEvent event) {
+        String name = event.getWorld().getName();
+        for (String worldName : plugin.config().enabledWorlds()) {
+            if (worldName.equals(name)) {
+                // Name is correctly capitalized, do nothing.
+                return;
+            }
+            if (!worldName.equalsIgnoreCase(name)) {
+                // Names do not match, skip.
+                continue;
+            }
 
-			// World name with incorrect casing loaded, reload config to correct values.
-			plugin.reloadConfig();
-			return;
-		}
-	}
+            // World name with incorrect casing loaded, reload config to correct values.
+            plugin.reloadConfig();
+            return;
+        }
+    }
 
-	@EventHandler
-	public void onWorldUnload(@NotNull WorldUnloadEvent event) {
-		World world = event.getWorld();
-		plugin.getWorldManager().releaseWorld(world);
+    @EventHandler
+    public void onWorldUnload(@NotNull WorldUnloadEvent event) {
+        World world = event.getWorld();
+        plugin.getWorldManager().releaseWorld(world);
 
-		if (plugin.config().enabledWorlds().contains(world.getName())) {
-			// TODO Is world still in server world list? Does recalc need to be delayed?
-			plugin.reloadConfig();
-		} else {
-			DeletionRunnable runnable = plugin.deletionRunnables.remove(world.getName());
-			if (runnable != null) {
-				runnable.cancel();
-			}
-		}
-	}
+        if (plugin.config().enabledWorlds().contains(world.getName())) {
+            // TODO Is world still in server world list? Does recalc need to be delayed?
+            plugin.reloadConfig();
+        } else {
+            DeletionRunnable runnable = plugin.deletionRunnables.remove(world.getName());
+            if (runnable != null) {
+                runnable.cancel();
+            }
+        }
+    }
 }

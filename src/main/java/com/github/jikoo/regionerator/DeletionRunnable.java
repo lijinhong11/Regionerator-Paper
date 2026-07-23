@@ -1,25 +1,19 @@
 /*
- * Copyright (c) 2015-2021 by Jikoo.
+ * Regionerator
+ * Copyright (C) 2026 Jikoo and lijinhong11(mmmjjkx)
  *
- * Regionerator is licensed under a Creative Commons
- * Attribution-ShareAlike 4.0 International License.
+ * Regionerator is licensed under a
+ * Creative Commons Attribution-ShareAlike 4.0 International License.
  *
  * You should have received a copy of the license along with this
  * work. If not, see <http://creativecommons.org/licenses/by-sa/4.0/>.
  */
-
 package com.github.jikoo.regionerator;
 
 import com.github.jikoo.regionerator.world.ChunkInfo;
 import com.github.jikoo.regionerator.world.RegionInfo;
 import com.github.jikoo.regionerator.world.WorldInfo;
 import com.tcoded.folialib.wrapper.task.WrappedTask;
-import org.bukkit.Chunk;
-import org.bukkit.World;
-import org.bukkit.plugin.IllegalPluginAccessException;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -31,315 +25,353 @@ import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.bukkit.Chunk;
+import org.bukkit.World;
+import org.bukkit.plugin.IllegalPluginAccessException;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Runnable for checking and deleting chunks and regions.
  */
 public class DeletionRunnable implements Consumer<WrappedTask> {
 
-	private static final String STATS_FORMAT = "%s: checked %s, deleted %s regions & %s chunks";
+    private static final String STATS_FORMAT = "%s: checked %s, deleted %s regions & %s chunks";
 
-	private final @NotNull Regionerator plugin;
-	private final @NotNull Phaser phaser;
-	private final AtomicLong nextRun = new AtomicLong(Long.MAX_VALUE);
-	private final AtomicInteger regionCount = new AtomicInteger();
-	private final AtomicInteger heavyChecks = new AtomicInteger();
-	private final AtomicInteger regionsDeleted = new AtomicInteger();
-	private final AtomicInteger chunksDeleted = new AtomicInteger();
-	private final String worldName;
-	private @Nullable WorldInfo world;
-	private long nextLogSecond = Instant.now().getEpochSecond() + 5;
-	private int nextLogCount = 20;
+    private final @NotNull Regionerator plugin;
+    private final @NotNull Phaser phaser;
+    private final AtomicLong nextRun = new AtomicLong(Long.MAX_VALUE);
+    private final AtomicInteger regionCount = new AtomicInteger();
+    private final AtomicInteger heavyChecks = new AtomicInteger();
+    private final AtomicInteger regionsDeleted = new AtomicInteger();
+    private final AtomicInteger chunksDeleted = new AtomicInteger();
+    private final String worldName;
+    private @Nullable WorldInfo world;
+    private long nextLogSecond = Instant.now().getEpochSecond() + 5;
+    private int nextLogCount = 20;
 
-	private WrappedTask taskInstance;
-	private List<Chunk> lessInteractChunks = new ArrayList<>();
+    private WrappedTask taskInstance;
+    private List<Chunk> lessInteractChunks = new ArrayList<>();
 
-	DeletionRunnable(@NotNull Regionerator plugin, @NotNull World world) {
-		this.plugin = plugin;
-		this.phaser = new Phaser(1);
-		this.world = plugin.getWorldManager().getWorld(world);
-		this.worldName = world.getName();
-	}
+    DeletionRunnable(@NotNull Regionerator plugin, @NotNull World world) {
+        this.plugin = plugin;
+        this.phaser = new Phaser(1);
+        this.world = plugin.getWorldManager().getWorld(world);
+        this.worldName = world.getName();
+    }
 
-	@Override
-	public void accept(WrappedTask task) {
-		if (this.world == null) {
-			throw new IllegalStateException("Cannot reuse deletion runnable!");
-		}
+    @Override
+    public void accept(WrappedTask task) {
+        if (this.world == null) {
+            throw new IllegalStateException("Cannot reuse deletion runnable!");
+        }
 
-		taskInstance = task;
+        taskInstance = task;
 
-		Stream<RegionInfo> regions = null;
-		try {
-			// Fetch region info on the main thread. Getting data folder may throw a CME otherwise.
-			regions = world.getRegions();
-		} catch (Exception e) {
-			plugin.getLogger().severe("Unable to access world data!");
-			plugin.getLogger().log(Level.SEVERE, "Error accessing world data on main thread", e);
-		}
+        Stream<RegionInfo> regions = null;
+        try {
+            // Fetch region info on the main thread. Getting data folder may throw a CME otherwise.
+            regions = world.getRegions();
+        } catch (Exception e) {
+            plugin.getLogger().severe("Unable to access world data!");
+            plugin.getLogger().log(Level.SEVERE, "Error accessing world data on main thread", e);
+        }
 
-		int days = plugin.config().getExpiredDaysInWorld(world.getWorld());
-		lessInteractChunks = plugin.getTracker().pollExpiredChunks(world.getWorld(), days);
+        int days = plugin.config().getExpiredDaysInWorld(world.getWorld());
+        lessInteractChunks = plugin.getTracker().pollExpiredChunks(world.getWorld(), days);
 
-		if (regions != null) {
-			regions.forEach(this::handleRegion);
-		}
+        if (regions != null) {
+            regions.forEach(this::handleRegion);
+        }
 
-		// Release world reference.
-		world = null;
-		plugin.getLogger().info("Deletion cycle complete for " + getRunStats());
-		nextRun.set(System.currentTimeMillis() + plugin.config().getCycleDelayMillis());
+        // Release world reference.
+        world = null;
+        plugin.getLogger().info("Deletion cycle complete for " + getRunStats());
+        nextRun.set(System.currentTimeMillis() + plugin.config().getCycleDelayMillis());
 
-		// If configured to remember cycle delays across restarts, do post-run callback on the main thread.
-		if (plugin.config().isRememberCycleDelay()) {
-			try {
-				plugin.getScheduler().runNextTick(t -> plugin.finishCycle(this));
-			} catch (IllegalPluginAccessException e) {
-				// Plugin disabling, odds are on that we were mid-cycle. Don't update finish time.
-			}
-		}
+        // If configured to remember cycle delays across restarts, do post-run callback on the main thread.
+        if (plugin.config().isRememberCycleDelay()) {
+            try {
+                plugin.getScheduler().runNextTick(t -> plugin.finishCycle(this));
+            } catch (IllegalPluginAccessException e) {
+                // Plugin disabling, odds are on that we were mid-cycle. Don't update finish time.
+            }
+        }
 
-		phaser.arriveAndDeregister();
-	}
+        phaser.arriveAndDeregister();
+    }
 
-	public synchronized void cancel() throws IllegalStateException {
-		if (taskInstance != null) {
-			taskInstance.cancel();
-		}
+    public synchronized void cancel() throws IllegalStateException {
+        if (taskInstance != null) {
+            taskInstance.cancel();
+        }
 
-		this.world = null;
-	}
+        this.world = null;
+    }
 
-	public synchronized boolean isCancelled() throws IllegalStateException {
-		return taskInstance == null || taskInstance.isCancelled();
-	}
+    public synchronized boolean isCancelled() throws IllegalStateException {
+        return taskInstance == null || taskInstance.isCancelled();
+    }
 
-	private void handleRegion(@NotNull RegionInfo region) {
-		plugin.getLogger().info("Cancelled: " + isCancelled());
+    private void handleRegion(@NotNull RegionInfo region) {
+        if (isCancelled()) {
+            return;
+        }
 
-		if (isCancelled()) {
-			return;
-		}
+        // Check phaser for paused state.
+        phaser.arriveAndAwaitAdvance();
 
-		// Check phaser for paused state.
-		phaser.arriveAndAwaitAdvance();
+        int regionsChecked = regionCount.incrementAndGet();
+        plugin.debug(
+                DebugLevel.HIGH,
+                () -> String.format("Checking %s: %s (%s)", worldName, region.getIdentifier(), regionCount.get()));
 
-		int regionsChecked = regionCount.incrementAndGet();
-		plugin.debug(DebugLevel.HIGH, () -> String.format("Checking %s: %s (%s)",
-				worldName, region.getIdentifier(), regionCount.get()));
+        // Read the region's data from disk.
+        if (!readRegion(region)) {
+            return;
+        }
 
-		// Read the region's data from disk.
-		if (!readRegion(region)) {
-			return;
-		}
+        // Get a list of eligible chunks.
+        List<ChunkInfo> chunks = getEligibleChunks(region);
 
-		// Get a list of eligible chunks.
-		List<ChunkInfo> chunks = getEligibleChunks(region);
+        // If there are no eligible chunks, do post-region recovery and move on.
+        if (chunks == null) {
+            recover();
+            return;
+        }
 
-		// If there are no eligible chunks, do post-region recovery and move on.
-		if (chunks == null) {
-			recover();
-			return;
-		}
+        // Orphan chunks. N.B. Changes do not take effect until RegionInfo#write is called.
+        chunks.forEach(ChunkInfo::setOrphaned);
 
-		// Orphan chunks. N.B. Changes do not take effect until RegionInfo#write is called.
-		chunks.forEach(ChunkInfo::setOrphaned);
+        // Write modified region to disk.
+        writeRegion(region, chunks);
 
-		// Write modified region to disk.
-		writeRegion(region, chunks);
+        // If 5 seconds have elapsed since last log and 20 or more regions have been checked, log run stats.
+        long now = Instant.now().getEpochSecond();
+        if (nextLogSecond <= now && regionsChecked >= nextLogCount) {
+            nextLogSecond = now + 5;
+            nextLogCount = regionsChecked + 20;
+            plugin.debug(DebugLevel.LOW, this::getRunStats);
+        }
 
-		// If 5 seconds have elapsed since last log and 20 or more regions have been checked, log run stats.
-		long now = Instant.now().getEpochSecond();
-		if (nextLogSecond <= now && regionsChecked >= nextLogCount) {
-			nextLogSecond = now + 5;
-			nextLogCount = regionsChecked + 20;
-			plugin.debug(DebugLevel.LOW, this::getRunStats);
-		}
+        // Do post-region recovery.
+        recover();
+    }
 
-		// Do post-region recovery.
-		recover();
-	}
+    private boolean readRegion(@NotNull RegionInfo region) {
+        try {
+            if (!region.read()) {
+                plugin.debug(DebugLevel.HIGH, () -> "Skipping region - in use by server.");
+                return false;
+            }
+        } catch (IOException e) {
+            plugin.getLogger().log(Level.WARNING, "Unable to read region!", e);
+            return false;
+        }
 
-	private boolean readRegion(@NotNull RegionInfo region) {
-		try {
-			if (!region.read()) {
-				plugin.debug(DebugLevel.HIGH, () -> "Skipping region - in use by server.");
-				return false;
-			}
-		} catch (IOException e) {
-			plugin.getLogger().log(Level.WARNING, "Unable to read region!", e);
-			return false;
-		}
+        return true;
+    }
 
-		return true;
-	}
+    private @Nullable List<ChunkInfo> getEligibleChunks(@NotNull RegionInfo region) {
+        // Collect potentially eligible chunks
+        List<ChunkInfo> chunks =
+                region.getChunks().filter(this::isDeleteEligible).collect(Collectors.toCollection(ArrayList::new));
 
-	private @Nullable List<ChunkInfo> getEligibleChunks(@NotNull RegionInfo region) {
-		// Collect potentially eligible chunks
-		List<ChunkInfo> chunks = region.getChunks()
-				.filter(this::isDeleteEligible)
-				.collect(Collectors.toCollection(ArrayList::new));
+        long orphanedCount = chunks.stream().filter(ChunkInfo::isOrphaned).count();
+        if (orphanedCount > 0) {
+            plugin.debug(
+                    DebugLevel.HIGH,
+                    () -> String.format(
+                            "Region %s has %s already-orphaned chunks", region.getIdentifier(), orphanedCount));
+        }
 
-		if (chunks.size() != region.getChunksPerRegion()) {
-			plugin.debug(DebugLevel.HIGH, () ->
-					String.format("Not all chunks are delete-eligible (%s) - removing unnecessary chunks", chunks.size()));
-			// If entire region is not being deleted, filter out chunks that are already orphaned or freshly generated
-			chunks.removeIf(this::isPartialDeletionIgnored);
-		} else if (!plugin.config().isDeleteFreshChunks(region.getWorld())
-				&& chunks.stream().noneMatch(chunk -> chunk.getVisitStatus() == VisitStatus.UNVISITED)) {
-			// If we're configured to not delete fresh chunks and the whole region is likely fresh, do nothing.
-			plugin.debug(DebugLevel.HIGH, () -> "Skipping region - chunks are freshly generated.");
-			return null;
-		}
+        if (chunks.size() != region.getChunksPerRegion()) {
+            plugin.debug(
+                    DebugLevel.HIGH,
+                    () -> String.format(
+                            "Not all chunks are delete-eligible (%s) - removing unnecessary chunks", chunks.size()));
+            // If entire region is not being deleted, filter out chunks that are already orphaned or freshly generated
+            chunks.removeIf(this::isPartialDeletionIgnored);
+        } else if (!plugin.config().isDeleteFreshChunks(region.getWorld())
+                && chunks.stream().allMatch(chunk -> {
+                    try {
+                        return chunk.getVisitStatus() == VisitStatus.GENERATED;
+                    } catch (RuntimeException e) {
+                        return false;
+                    }
+                })) {
+            // If we're configured to not delete fresh chunks and the whole region is freshly generated, do nothing.
+            plugin.debug(DebugLevel.HIGH, () -> "Skipping region - chunks are freshly generated.");
+            return null;
+        }
 
-		if (chunks.isEmpty()) {
-			// If no chunks are modified, do nothing.
-			plugin.debug(DebugLevel.HIGH, () -> "Skipping region - no chunks are delete-eligible.");
-			return null;
-		}
+        if (chunks.isEmpty()) {
+            // If no chunks are modified, do nothing.
+            plugin.debug(DebugLevel.HIGH, () -> "Skipping region - no chunks are delete-eligible.");
+            return null;
+        }
 
-		return chunks;
-	}
+        return chunks;
+    }
 
-	private boolean isPartialDeletionIgnored(ChunkInfo chunkInfo) {
-		// Always ignore chunks if plugin is disabling.
-		if (isCancelled()) {
-			return true;
-		}
+    private boolean isPartialDeletionIgnored(ChunkInfo chunkInfo) {
+        // Always ignore chunks if plugin is disabling.
+        if (isCancelled()) {
+            return true;
+        }
 
-		VisitStatus visitStatus;
-		try {
-			// The status should be cached here, but if enough time has elapsed it theoretically might not be.
-			visitStatus = chunkInfo.getVisitStatus();
-		} catch (RuntimeException e) {
-			return true;
-		}
+        VisitStatus visitStatus;
+        try {
+            // The status should be cached here, but if enough time has elapsed it theoretically might not be.
+            visitStatus = chunkInfo.getVisitStatus();
+        } catch (RuntimeException e) {
+            return true;
+        }
 
-		// Ignore existing orphans and, if configured to, freshly-generated area.
-		return visitStatus == VisitStatus.ORPHANED || !plugin.config().isDeleteFreshChunks(chunkInfo.getWorld()) && visitStatus == VisitStatus.GENERATED;
-	}
+        // Ignore existing orphans and, if configured to, freshly-generated area.
+        return visitStatus == VisitStatus.ORPHANED
+                || !plugin.config().isDeleteFreshChunks(chunkInfo.getWorld()) && visitStatus == VisitStatus.GENERATED;
+    }
 
-	private void recover() {
-		if (isCancelled()) {
-			return;
-		}
+    private void recover() {
+        if (isCancelled()) {
+            return;
+        }
 
-		long recoveryTime = plugin.config().getDeletionRecoveryMillis();
-		if (recoveryTime > 0) {
-			try {
-				// Allow server to recover for configured time.
-				Thread.sleep(recoveryTime);
-			} catch (InterruptedException ignored) {
-			}
-		}
+        long recoveryTime = plugin.config().getDeletionRecoveryMillis();
+        if (recoveryTime > 0) {
+            try {
+                // Allow server to recover for configured time.
+                Thread.sleep(recoveryTime);
+            } catch (InterruptedException ignored) {
+            }
+        }
 
-		// Reset chunk count after sleep.
-		heavyChecks.set(0);
-	}
+        // Reset chunk count after sleep.
+        heavyChecks.set(0);
+    }
 
-	private boolean isDeleteEligible(@NotNull ChunkInfo chunkInfo) {
-		World world = chunkInfo.getWorld();
+    private boolean isDeleteEligible(@NotNull ChunkInfo chunkInfo) {
+        World world = chunkInfo.getWorld();
 
-		if (isCancelled()) {
-			// If task is canceled, report all chunks ineligible for deletion
-			plugin.debug(DebugLevel.HIGH, () -> "Deletion task is cancelled, chunks are ineligible for delete.");
-			return false;
-		}
+        if (isCancelled()) {
+            // If task is canceled, report all chunks ineligible for deletion
+            plugin.debug(DebugLevel.HIGH, () -> "Deletion task is cancelled, chunks are ineligible for delete.");
+            return false;
+        }
 
-		if (chunkInfo.isOrphaned()) {
-			// Chunk already deleted
-			plugin.debug(DebugLevel.HIGH, () -> String.format("Chunk %s_%s_%s is already orphaned.",
-					world.getName(), chunkInfo.getChunkX(), chunkInfo.getChunkZ()));
-			return true;
-		}
+        if (chunkInfo.isOrphaned()) {
+            // Chunk already deleted - counted in aggregate
+            return true;
+        }
 
-		long now = System.currentTimeMillis();
-		long lastVisit = chunkInfo.getLastVisit();
-		boolean isFresh = !plugin.config().isDeleteFreshChunks(world) && lastVisit == plugin.config().getFlagGenerated(world);
+        long now = System.currentTimeMillis();
+        long lastVisit = chunkInfo.getLastVisit();
+        boolean isFresh = !plugin.config().isDeleteFreshChunks(world)
+                && lastVisit == plugin.config().getFlagGenerated(world);
 
-		if (lessInteractChunks.contains(chunkInfo.getBukkitChunk())) {
-			plugin.debug(DebugLevel.HIGH, () -> String.format("Chunk %s_%s_%s is marked as delete because of less interactions",
-					chunkInfo.getWorld().getName(), chunkInfo.getChunkX(), chunkInfo.getChunkZ()));
-			return true;
-		}
+        if (containsChunk(lessInteractChunks, world, chunkInfo.getChunkX(), chunkInfo.getChunkZ())) {
+            plugin.debug(
+                    DebugLevel.HIGH,
+                    () -> String.format(
+                            "Chunk %s_%s_%s is marked as delete because of less interactions",
+                            chunkInfo.getWorld().getName(), chunkInfo.getChunkX(), chunkInfo.getChunkZ()));
+            return true;
+        }
 
-		if (!isFresh && now <= lastVisit) {
-			// Chunk is visited
-			plugin.debug(DebugLevel.HIGH, () -> String.format("Chunk %s_%s_%s is visited until %s",
-					chunkInfo.getWorld().getName(), chunkInfo.getChunkX(), chunkInfo.getChunkZ(), lastVisit));
-			return false;
-		}
+        if (!isFresh && now <= lastVisit) {
+            // Chunk is visited
+            plugin.debug(
+                    DebugLevel.HIGH,
+                    () -> String.format(
+                            "Chunk %s_%s_%s is visited until %s",
+                            chunkInfo.getWorld().getName(), chunkInfo.getChunkX(), chunkInfo.getChunkZ(), lastVisit));
+            return false;
+        }
 
-		if (!isFresh && now - plugin.config().getFlagDuration(chunkInfo.getWorld()) <= chunkInfo.getLastModified()) {
-			plugin.debug(DebugLevel.HIGH, () -> String.format("Chunk %s_%s_%s is modified until %s",
-					chunkInfo.getWorld().getName(), chunkInfo.getChunkX(), chunkInfo.getChunkZ(), chunkInfo.getLastModified()));
-			return false;
-		}
+        if (!isFresh && now - plugin.config().getFlagDuration(chunkInfo.getWorld()) <= chunkInfo.getLastModified()) {
+            plugin.debug(
+                    DebugLevel.HIGH,
+                    () -> String.format(
+                            "Chunk %s_%s_%s is modified until %s",
+                            chunkInfo.getWorld().getName(),
+                            chunkInfo.getChunkX(),
+                            chunkInfo.getChunkZ(),
+                            chunkInfo.getLastModified()));
+            return false;
+        }
 
-		// Do recovery for heavy checks as required.
-		if (heavyChecks.incrementAndGet() >= plugin.config().getDeletionChunkCount()) {
-			recover();
-		}
+        // Do recovery for heavy checks as required.
+        if (heavyChecks.incrementAndGet() >= plugin.config().getDeletionChunkCount()) {
+            recover();
+        }
 
-		if (plugin.debug(DebugLevel.HIGH)) {
-			plugin.getDebugListener().monitorChunk(chunkInfo.getChunkX(), chunkInfo.getChunkZ());
-		}
+        if (plugin.debug(DebugLevel.HIGH)) {
+            plugin.getDebugListener().monitorChunk(chunkInfo.getChunkX(), chunkInfo.getChunkZ());
+        }
 
-		VisitStatus visitStatus;
-		try {
-			// Calculate VisitStatus including protection hooks.
-			visitStatus = chunkInfo.getVisitStatus();
-		} catch (RuntimeException e) {
-			// Interruption is not due to plugin shutdown, log.
-			if (!this.isCancelled() && plugin.isEnabled()) {
-				plugin.debug(() -> String.format("Caught an exception getting VisitStatus: %s", e.getMessage()), e);
-			}
+        VisitStatus visitStatus;
+        try {
+            // Calculate VisitStatus including protection hooks.
+            visitStatus = chunkInfo.getVisitStatus();
+        } catch (RuntimeException e) {
+            // Interruption is not due to plugin shutdown, log.
+            if (!this.isCancelled() && plugin.isEnabled()) {
+                plugin.debug(() -> String.format("Caught an exception getting VisitStatus: %s", e.getMessage()), e);
+            }
 
-			// If an exception occurred, do not delete chunk.
-			visitStatus = VisitStatus.UNKNOWN;
-		}
+            // If an exception occurred, do not delete chunk.
+            visitStatus = VisitStatus.UNKNOWN;
+        }
 
-		if (plugin.debug(DebugLevel.HIGH)) {
-			plugin.getDebugListener().ignoreChunk(chunkInfo.getChunkX(), chunkInfo.getChunkZ());
-		}
+        if (plugin.debug(DebugLevel.HIGH)) {
+            plugin.getDebugListener().ignoreChunk(chunkInfo.getChunkX(), chunkInfo.getChunkZ());
+        }
 
-		return visitStatus.ordinal() < VisitStatus.VISITED.ordinal();
+        return visitStatus.ordinal() < VisitStatus.VISITED.ordinal();
+    }
 
-	}
+    static boolean containsChunk(List<Chunk> chunks, World world, int chunkX, int chunkZ) {
+        return chunks.stream()
+                .anyMatch(chunk -> chunk.getWorld() == world && chunk.getX() == chunkX && chunk.getZ() == chunkZ);
+    }
 
-	private void writeRegion(@NotNull RegionInfo region, List<ChunkInfo> chunks) {
-		try {
-			if (!region.write()) {
-				plugin.debug(DebugLevel.HIGH, () -> "Skipping region - in use by server.");
-				return;
-			}
+    private void writeRegion(@NotNull RegionInfo region, List<ChunkInfo> chunks) {
+        try {
+            if (!region.write()) {
+                plugin.debug(DebugLevel.HIGH, () -> "Skipping region - in use by server.");
+                return;
+            }
 
-			chunks.forEach(chunk -> plugin.getFlagger().unflagChunk(chunk.getWorld().getName(), chunk.getChunkX(), chunk.getChunkZ()));
+            chunks.forEach(chunk ->
+                    plugin.getFlagger().unflagChunk(chunk.getWorld().getName(), chunk.getChunkX(), chunk.getChunkZ()));
 
-			if (chunks.size() == region.getChunksPerRegion()) {
-				regionsDeleted.incrementAndGet();
-			} else {
-				chunksDeleted.addAndGet(chunks.size());
-			}
-		} catch (IOException e) {
-			plugin.debug(() -> String.format(
-					"Caught an IOException attempting to populate chunk data: %s", e.getMessage()), e);
-		}
-	}
+            if (chunks.size() == region.getChunksPerRegion()) {
+                regionsDeleted.incrementAndGet();
+            } else {
+                chunksDeleted.addAndGet(chunks.size());
+            }
+        } catch (IOException e) {
+            plugin.debug(
+                    () -> String.format("Caught an IOException attempting to populate chunk data: %s", e.getMessage()),
+                    e);
+        }
+    }
 
-	public String getRunStats() {
-		return String.format(STATS_FORMAT, worldName, regionCount, regionsDeleted, chunksDeleted);
-	}
+    public String getRunStats() {
+        return String.format(STATS_FORMAT, worldName, regionCount, regionsDeleted, chunksDeleted);
+    }
 
-	public @NotNull String getWorld() {
-		return worldName;
-	}
+    public @NotNull String getWorld() {
+        return worldName;
+    }
 
-	public long getNextRun() {
-		return nextRun.get();
-	}
+    public long getNextRun() {
+        return nextRun.get();
+    }
 
-	@NotNull Phaser getPhaser() {
-		return phaser;
-	}
+    @NotNull
+    Phaser getPhaser() {
+        return phaser;
+    }
 }

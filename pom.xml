@@ -1,11 +1,10 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.github.jikoo</groupId>
   <artifactId>regionerator</artifactId>
+  <version>3.0.1-SNAPSHOT-FORK</version>
   <name>Regionerator</name>
-  <version>3.0.0-SNAPSHOT-FORK</version>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -274,8 +273,8 @@
       <url>https://repo.papermc.io/repository/maven-public/</url>
     </repository>
     <repository>
-        <id>spigot-repo</id>
-        <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
+      <id>spigot-repo</id>
+      <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
     </repository>
     <repository>
       <id>sk89q-repo</id>
@@ -311,18 +310,18 @@
 
     <resources>
       <resource>
-        <directory>src/main/resources</directory>
         <filtering>true</filtering>
+        <directory>src/main/resources</directory>
         <includes>
           <include>**/*.yml</include>
         </includes>
       </resource>
       <resource>
+        <targetPath>com/github/jikoo/regionerator/hooks</targetPath>
         <directory>src/main/precompiled_hooks</directory>
         <includes>
           <include>*Hook.class</include>
         </includes>
-        <targetPath>com/github/jikoo/regionerator/hooks</targetPath>
       </resource>
     </resources>
 
@@ -336,14 +335,6 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
         <version>3.6.2</version>
-        <executions>
-          <execution>
-            <goals>
-              <goal>shade</goal>
-            </goals>
-            <phase>package</phase>
-          </execution>
-        </executions>
         <configuration>
           <relocations>
             <!-- Relocate various utilities that have been migrated to PlanarWrappers. -->
@@ -377,12 +368,48 @@
             </filter>
           </filters>
         </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <phase>package</phase>
+          </execution>
+        </executions>
       </plugin>
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.15.0</version>
+      </plugin>
+
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <version>3.8.0</version>
+        <configuration>
+          <java>
+            <palantirJavaFormat/>
+            <trimTrailingWhitespace/>
+            <endWithNewline/>
+            <removeUnusedImports/>
+            <licenseHeader>
+              <file>header.txt</file>
+            </licenseHeader>
+            <importOrder>
+              <wildcardsLast>true</wildcardsLast>
+            </importOrder>
+          </java>
+          <pom>
+            <includes>
+              <include>pom.xml</include>
+            </includes>
+            <sortPom>
+              <expandEmptyElements>false</expandEmptyElements>
+            </sortPom>
+          </pom>
+        </configuration>
       </plugin>
 
       <plugin>

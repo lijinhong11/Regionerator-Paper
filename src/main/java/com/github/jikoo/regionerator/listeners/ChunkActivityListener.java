@@ -1,3 +1,13 @@
+/*
+ * Regionerator
+ * Copyright (C) 2026 Jikoo and lijinhong11(mmmjjkx)
+ *
+ * Regionerator is licensed under a
+ * Creative Commons Attribution-ShareAlike 4.0 International License.
+ *
+ * You should have received a copy of the license along with this
+ * work. If not, see <http://creativecommons.org/licenses/by-sa/4.0/>.
+ */
 package com.github.jikoo.regionerator.listeners;
 
 import com.github.jikoo.regionerator.activity.ChunkActivityTracker;
@@ -73,12 +83,22 @@ public class ChunkActivityListener implements Listener {
     }
 
     @EventHandler(ignoreCancelled = true)
-    public void onPiston(BlockPistonEvent e) {
+    public void onPiston(BlockPistonExtendEvent e) {
+        tracker.recordActivity(e.getBlock().getChunk());
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onPiston(BlockPistonRetractEvent e) {
         tracker.recordActivity(e.getBlock().getChunk());
     }
 
     @EventHandler(ignoreCancelled = true)
     public void onDispense(BlockDispenseEvent e) {
+        tracker.recordActivity(e.getBlock().getChunk());
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onCook(BlockCookEvent e) {
         tracker.recordActivity(e.getBlock().getChunk());
     }
 }

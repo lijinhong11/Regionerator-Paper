@@ -1,13 +1,13 @@
 /*
- * Copyright (c) 2015-2021 by Jikoo.
+ * Regionerator
+ * Copyright (C) 2026 Jikoo and lijinhong11(mmmjjkx)
  *
- * Regionerator is licensed under a Creative Commons
- * Attribution-ShareAlike 4.0 International License.
+ * Regionerator is licensed under a
+ * Creative Commons Attribution-ShareAlike 4.0 International License.
  *
  * You should have received a copy of the license along with this
  * work. If not, see <http://creativecommons.org/licenses/by-sa/4.0/>.
  */
-
 package com.github.jikoo.regionerator.hooks;
 
 import com.github.jikoo.planarwrappers.util.Coords;
@@ -24,30 +24,33 @@ import org.jetbrains.annotations.NotNull;
  */
 public class WorldGuardHook extends PluginHook {
 
-	public WorldGuardHook() {
-		super("WorldGuard");
-	}
+    public WorldGuardHook() {
+        super("WorldGuard");
+    }
 
-	@Override
-	public boolean isChunkProtected(@NotNull World chunkWorld, int chunkX, int chunkZ) {
-		RegionManager regionManager = WorldGuard.getInstance().getPlatform().getRegionContainer().get(BukkitAdapter.adapt(chunkWorld));
+    @Override
+    public boolean isChunkProtected(@NotNull World chunkWorld, int chunkX, int chunkZ) {
+        RegionManager regionManager =
+                WorldGuard.getInstance().getPlatform().getRegionContainer().get(BukkitAdapter.adapt(chunkWorld));
 
-		if (regionManager == null) {
-			return false;
-		}
+        if (regionManager == null) {
+            return false;
+        }
 
-		int chunkBlockX = Coords.chunkToBlock(chunkX);
-		int chunkBlockZ = Coords.chunkToBlock(chunkZ);
+        int chunkBlockX = Coords.chunkToBlock(chunkX);
+        int chunkBlockZ = Coords.chunkToBlock(chunkZ);
 
-		BlockVector3 bottom = BlockVector3.at(chunkBlockX, 0, chunkBlockZ);
-		BlockVector3 top = BlockVector3.at(chunkBlockX + 15, 255, chunkBlockZ + 15);
+        BlockVector3 bottom = BlockVector3.at(chunkBlockX, 0, chunkBlockZ);
+        BlockVector3 top = BlockVector3.at(chunkBlockX + 15, 255, chunkBlockZ + 15);
 
-		return regionManager.getApplicableRegions(new ProtectedCuboidRegion("REGIONERATOR_TMP", bottom, top)).size() > 0;
-	}
+        return regionManager
+                        .getApplicableRegions(new ProtectedCuboidRegion("REGIONERATOR_TMP", bottom, top))
+                        .size()
+                > 0;
+    }
 
-	@Override
-	public boolean isAsyncCapable() {
-		return true;
-	}
-
+    @Override
+    public boolean isAsyncCapable() {
+        return true;
+    }
 }

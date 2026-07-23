@@ -1,13 +1,13 @@
 /*
- * Copyright (c) 2015-2021 by Jikoo.
+ * Regionerator
+ * Copyright (C) 2026 Jikoo and lijinhong11(mmmjjkx)
  *
- * Regionerator is licensed under a Creative Commons
- * Attribution-ShareAlike 4.0 International License.
+ * Regionerator is licensed under a
+ * Creative Commons Attribution-ShareAlike 4.0 International License.
  *
  * You should have received a copy of the license along with this
  * work. If not, see <http://creativecommons.org/licenses/by-sa/4.0/>.
  */
-
 package com.github.jikoo.regionerator.hooks;
 
 import com.github.jikoo.regionerator.Regionerator;
@@ -20,29 +20,28 @@ import org.jetbrains.annotations.NotNull;
  */
 public class LandsHook extends PluginHook {
 
-	private LandsIntegration landsAPI;
+    private LandsIntegration landsAPI;
 
-	public LandsHook() {
-		super("Lands");
-	}
+    public LandsHook() {
+        super("Lands");
+    }
 
-	@Override
-	public boolean isChunkProtected(@NotNull World chunkWorld, int chunkX, int chunkZ) {
-		// Chunks should never be loaded, must use methods for unloaded chunks.
-		return getLandsAPI().getLandByUnloadedChunk(chunkWorld, chunkX, chunkZ) != null;
-	}
+    @Override
+    public boolean isChunkProtected(@NotNull World chunkWorld, int chunkX, int chunkZ) {
+        // Chunks should never be loaded, must use methods for unloaded chunks.
+        return getLandsAPI().getLandByUnloadedChunk(chunkWorld, chunkX, chunkZ) != null;
+    }
 
-	@Override
-	public boolean isAsyncCapable() {
-		return true;
-	}
+    @Override
+    public boolean isAsyncCapable() {
+        return true;
+    }
 
-	private @NotNull LandsIntegration getLandsAPI() {
-		if (landsAPI == null) {
-			landsAPI = LandsIntegration.of(Regionerator.getInstance());
-		}
+    private @NotNull LandsIntegration getLandsAPI() {
+        if (landsAPI == null) {
+            landsAPI = LandsIntegration.of(Regionerator.getInstance());
+        }
 
-		return landsAPI;
-	}
-
+        return landsAPI;
+    }
 }

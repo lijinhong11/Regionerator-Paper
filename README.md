@@ -12,4 +12,6 @@ This work is licensed under a [Creative Commons Attribution-ShareAlike 4.0 Inter
 The [LinearRegion class](/src/main/java/com/github/jikoo/regionerator/world/impl/linear/LinearRegion.java) is from [LuminolMC/Luminol](https://github.com/LuminolMC/Luminol) under [GPL v3 License](https://github.com/LuminolMC/Luminol/blob/ver/1.21.11/licenses/GPL.md).
 
 ## Disclaimer
-Regionerator directly modifies and deletes region files. This cannot be undone — keep regular backups! You are solely responsible for any damages to your world or server incurred by using this plugin. Use at your own risk.
+Regionerator directly modifies and deletes region files.    
+This cannot be undone — keep regular backups!   
+You are solely responsible for any damages to your world or server incurred by using this plugin. Use at your own risk.

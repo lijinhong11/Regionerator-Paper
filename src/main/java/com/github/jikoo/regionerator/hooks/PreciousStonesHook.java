@@ -1,13 +1,13 @@
 /*
- * Copyright (c) 2015-2021 by Jikoo.
+ * Regionerator
+ * Copyright (C) 2026 Jikoo and lijinhong11(mmmjjkx)
  *
- * Regionerator is licensed under a Creative Commons
- * Attribution-ShareAlike 4.0 International License.
+ * Regionerator is licensed under a
+ * Creative Commons Attribution-ShareAlike 4.0 International License.
  *
  * You should have received a copy of the license along with this
  * work. If not, see <http://creativecommons.org/licenses/by-sa/4.0/>.
  */
-
 package com.github.jikoo.regionerator.hooks;
 
 import com.github.jikoo.regionerator.world.DummyChunk;
@@ -21,13 +21,14 @@ import org.jetbrains.annotations.NotNull;
  */
 public class PreciousStonesHook extends PluginHook {
 
-	public PreciousStonesHook() {
-		super("PreciousStones");
-	}
+    public PreciousStonesHook() {
+        super("PreciousStones");
+    }
 
-	@Override
-	public boolean isChunkProtected(@NotNull World chunkWorld, int chunkX, int chunkZ) {
-		return !PreciousStones.API().getChunkFields(new DummyChunk(chunkWorld, chunkX, chunkZ), FieldFlag.ALL).isEmpty();
-	}
-
+    @Override
+    public boolean isChunkProtected(@NotNull World chunkWorld, int chunkX, int chunkZ) {
+        return !PreciousStones.API()
+                .getChunkFields(new DummyChunk(chunkWorld, chunkX, chunkZ), FieldFlag.ALL)
+                .isEmpty();
+    }
 }

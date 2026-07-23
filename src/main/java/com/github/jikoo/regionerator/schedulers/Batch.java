@@ -1,16 +1,24 @@
+/*
+ * Regionerator
+ * Copyright (C) 2026 Jikoo and lijinhong11(mmmjjkx)
+ *
+ * Regionerator is licensed under a
+ * Creative Commons Attribution-ShareAlike 4.0 International License.
+ *
+ * You should have received a copy of the license along with this
+ * work. If not, see <http://creativecommons.org/licenses/by-sa/4.0/>.
+ */
 package com.github.jikoo.regionerator.schedulers;
 
+import com.github.jikoo.planarwrappers.scheduler.TickTimeUnit;
+import com.github.jikoo.regionerator.Regionerator;
+import com.tcoded.folialib.wrapper.task.WrappedTask;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
-import com.github.jikoo.planarwrappers.scheduler.TickTimeUnit;
-import com.github.jikoo.regionerator.Regionerator;
-import com.tcoded.folialib.wrapper.task.WrappedTask;
-import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.UnmodifiableView;
 
@@ -21,71 +29,70 @@ import org.jetbrains.annotations.UnmodifiableView;
  */
 public abstract class Batch<T> {
 
-  private final @NotNull Set<T> elements = Collections.newSetFromMap(new ConcurrentHashMap<>());
-  private final @NotNull AtomicReference<WrappedTask> task = new AtomicReference<>();
-  final @NotNull Regionerator plugin;
-  final long gatherTicks;
+    private final @NotNull Set<T> elements = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private final @NotNull AtomicReference<WrappedTask> task = new AtomicReference<>();
+    final @NotNull Regionerator plugin;
+    final long gatherTicks;
 
-  protected Batch(@NotNull Regionerator plugin, long gatherPeriod, @NotNull TimeUnit gatherUnit) {
-    this.plugin = plugin;
-    this.gatherTicks = TickTimeUnit.toTicks(gatherPeriod, gatherUnit);
-    if (gatherTicks <= 0) {
-      throw new IllegalArgumentException("Gather ticks must be > 0");
-    }
-  }
-
-  public void add(@NotNull T element) {
-    this.elements.add(element);
-    this.trySchedule();
-  }
-
-  private void trySchedule() {
-    if (this.task.get() != null || this.elements.isEmpty()) {
-      return;
+    protected Batch(@NotNull Regionerator plugin, long gatherPeriod, @NotNull TimeUnit gatherUnit) {
+        this.plugin = plugin;
+        this.gatherTicks = TickTimeUnit.toTicks(gatherPeriod, gatherUnit);
+        if (gatherTicks <= 0) {
+            throw new IllegalArgumentException("Gather ticks must be > 0");
+        }
     }
 
-    this.task.set(this.schedule(this::run));
-  }
-
-  abstract @NotNull WrappedTask schedule(@NotNull Runnable runnable);
-
-  private void run() {
-    // Copy all elements to a new set, clearing original in the process.
-    Set<T> localBatch = new HashSet<>(this.elements.size());
-    this.elements.removeIf(element -> {
-      localBatch.add(element);
-      return true;
-    });
-
-    // Unset task.
-    this.task.set(null);
-
-    // Ensure we don't miss new elements added during time between clearing and unsetting.
-    if (!this.elements.isEmpty()) {
-      this.trySchedule();
+    public void add(@NotNull T element) {
+        this.elements.add(element);
+        this.trySchedule();
     }
 
-    // Post results to the batch consumer.
-    this.post(Collections.unmodifiableSet(localBatch));
-  }
+    private void trySchedule() {
+        if (this.task.get() != null || this.elements.isEmpty()) {
+            return;
+        }
 
-  protected abstract void post(@NotNull @UnmodifiableView Set<T> batch);
-
-  public void purge() {
-    if (elements.isEmpty()) {
-      return;
+        this.task.set(this.schedule(this::run));
     }
 
-    var batchCopy = Set.copyOf(this.elements);
-    this.task.getAndUpdate(internalTask -> {
-      if (internalTask != null && !internalTask.isCancelled()) {
-        internalTask.cancel();
-      }
-      return null;
-    });
-    this.elements.clear();
+    abstract @NotNull WrappedTask schedule(@NotNull Runnable runnable);
 
-    this.post(batchCopy);
-  }
+    private void run() {
+        // Copy all elements to a new set, clearing original in the process.
+        Set<T> localBatch = new HashSet<>(this.elements.size());
+        this.elements.removeIf(element -> {
+            localBatch.add(element);
+            return true;
+        });
 
+        // Unset task.
+        this.task.set(null);
+
+        // Ensure we don't miss new elements added during time between clearing and unsetting.
+        if (!this.elements.isEmpty()) {
+            this.trySchedule();
+        }
+
+        // Post results to the batch consumer.
+        this.post(Collections.unmodifiableSet(localBatch));
+    }
+
+    protected abstract void post(@NotNull @UnmodifiableView Set<T> batch);
+
+    public void purge() {
+        if (elements.isEmpty()) {
+            return;
+        }
+
+        var batchCopy = Set.copyOf(this.elements);
+        this.task.getAndUpdate(internalTask -> {
+            if (internalTask != null && !internalTask.isCancelled()) {
+                internalTask.cancel();
+            }
+            return null;
+        });
+        this.elements.clear();
+
+        this.post(batchCopy);
+    }
 }
