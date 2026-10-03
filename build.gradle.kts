@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.github.jikoo"
-version = "3.0.3-SNAPSHOT-FORK"
+version = "3.0.4-SNAPSHOT-FORK"
 
 repositories {
     mavenCentral()
