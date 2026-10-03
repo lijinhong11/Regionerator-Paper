@@ -21,7 +21,8 @@ import org.bukkit.Chunk;
 import org.bukkit.World;
 
 public class ChunkActivityTracker {
-    private final ConcurrentHashMap<String, ConcurrentHashMap<Long, ActivityWindow>> activityMap = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, ConcurrentHashMap<Long, ActivityWindow>> activityMap =
+            new ConcurrentHashMap<>();
 
     public void recordActivity(Chunk chunk) {
         long now = System.currentTimeMillis();

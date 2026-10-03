@@ -5,7 +5,7 @@ on:
 
 jobs:
   run-ci:
-    uses: Jikoo/PlanarActions/.github/workflows/ci_maven.yml@master
+    uses: ./.github/workflows/ci_gradle.yml
   approve-and-merge-dependabot:
     if: "github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]'"
     needs: [ "run-ci" ]

@@ -14,11 +14,12 @@ import com.github.jikoo.planarwrappers.scheduler.TickTimeUnit;
 import com.github.jikoo.planarwrappers.util.Coords;
 import com.github.jikoo.regionerator.Regionerator;
 import com.github.jikoo.regionerator.schedulers.AsyncBatch;
-import com.tcoded.folialib.wrapper.task.WrappedTask;
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import java.lang.reflect.Array;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.*;
+import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -100,11 +101,11 @@ public class FlaggingListener implements Listener {
     /**
      * DistributedTask for periodically marking chunks near players as visited.
      */
-    private static class FlaggingRunnable implements Consumer<WrappedTask> {
+    private static class FlaggingRunnable implements Consumer<ScheduledTask> {
         private final Set<UUID> allContent = new HashSet<>();
         private final @NotNull Set<UUID> @NotNull [] distributedContent;
         private final @NotNull Consumer<Collection<UUID>> consumer;
-        private WrappedTask taskInstance;
+        private ScheduledTask taskInstance;
         private int currentIndex = 0;
 
         FlaggingRunnable(@NotNull Regionerator plugin) {
@@ -113,7 +114,7 @@ public class FlaggingListener implements Listener {
             if (totalTicks < 2) {
                 throw new IllegalArgumentException("Period must be 2 ticks or greater");
             } else {
-                distributedContent = (Set[]) Array.newInstance(this.allContent.getClass(), totalTicks);
+                distributedContent = (Set<UUID>[]) Array.newInstance(this.allContent.getClass(), totalTicks);
 
                 for (int index = 0; index < this.distributedContent.length; ++index) {
                     this.distributedContent[index] = new HashSet<>();
@@ -137,7 +138,7 @@ public class FlaggingListener implements Listener {
                 }
 
                 if (!flagged.isEmpty()) {
-                    plugin.getScheduler().runAsync(t -> {
+                    Bukkit.getAsyncScheduler().runNow(plugin, t -> {
                         for (ChunkId chunk : flagged) {
                             plugin.getFlagger().flagChunksInRadius(chunk.worldName, chunk.chunkX, chunk.chunkZ);
                         }
@@ -176,7 +177,7 @@ public class FlaggingListener implements Listener {
         }
 
         @Override
-        public void accept(WrappedTask task) {
+        public void accept(ScheduledTask task) {
             this.taskInstance = task;
             this.consumer.accept(Collections.unmodifiableSet(this.distributedContent[this.currentIndex]));
             ++this.currentIndex;
@@ -190,7 +191,7 @@ public class FlaggingListener implements Listener {
                 this.taskInstance.cancel();
             }
 
-            plugin.getScheduler().runTimer(this, 1L, 1L);
+            Bukkit.getGlobalRegionScheduler().runAtFixedRate(plugin, this, 1L, 1L);
         }
 
         public void cancel() {

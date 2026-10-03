@@ -18,8 +18,6 @@ import com.github.jikoo.regionerator.listeners.*;
 import com.github.jikoo.regionerator.util.DeletionStartComparator;
 import com.github.jikoo.regionerator.util.yaml.Config;
 import com.github.jikoo.regionerator.util.yaml.MiscData;
-import com.tcoded.folialib.FoliaLib;
-import com.tcoded.folialib.impl.PlatformScheduler;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,7 +26,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Level;
-import java.util.stream.Collectors;
 import java.util.*;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -49,7 +46,6 @@ public class Regionerator extends JavaPlugin {
     public final Map<String, DeletionRunnable> deletionRunnables = new ConcurrentHashMap<>();
     private final Set<Hook> protectionHooks = Collections.newSetFromMap(new ConcurrentHashMap<>());
     private final AtomicBoolean paused = new AtomicBoolean();
-    private final FoliaLib foliaLib = new FoliaLib(this);
     private final ChunkActivityTracker tracker = new ChunkActivityTracker();
     private WorldManager worldManager;
     private ChunkFlagger chunkFlagger;
@@ -103,7 +99,7 @@ public class Regionerator extends JavaPlugin {
          * a circular dependency Bukkit makes no attempt to resolve soft dependencies at all.
          * To combat this, we load features after the server boots.
          */
-        getScheduler().runNextTick(t -> {
+        Bukkit.getGlobalRegionScheduler().run(this, t -> {
             // Reconsider world validity after plugins have enabled in case world provider also loads late.
             config.reconsiderWorldValidity();
             miscData.checkWorldValidity();
@@ -137,7 +133,8 @@ public class Regionerator extends JavaPlugin {
             flagger.cancel();
         }
 
-        getScheduler().cancelAllTasks();
+        Bukkit.getGlobalRegionScheduler().cancelTasks(this);
+        Bukkit.getAsyncScheduler().cancelTasks(this);
 
         if (chunkFlagger != null) {
             getLogger().info("Shutting down flagger - currently holds " + chunkFlagger.getCached() + " flags.");
@@ -241,7 +238,7 @@ public class Regionerator extends JavaPlugin {
         }
 
         // Periodically attempt to start deletion
-        getScheduler().runTimer(this::attemptDeletionActivation, 1L, 1200L);
+        Bukkit.getGlobalRegionScheduler().runAtFixedRate(this, t -> attemptDeletionActivation(), 1L, 1200L);
 
         if (debug(DebugLevel.HIGH)) {
             getServer().getPluginManager().registerEvents(debugListener, this);
@@ -320,7 +317,7 @@ public class Regionerator extends JavaPlugin {
             }
             try {
                 runnable = new DeletionRunnable(this, world);
-                getScheduler().runAsync(runnable);
+                Bukkit.getAsyncScheduler().runNow(this, runnable);
             } catch (RuntimeException e) {
                 debug(DebugLevel.HIGH, e::getMessage);
                 continue;
@@ -383,10 +380,6 @@ public class Regionerator extends JavaPlugin {
 
     public boolean isPaused() {
         return this.paused.get();
-    }
-
-    public PlatformScheduler getScheduler() {
-        return foliaLib.getScheduler();
     }
 
     public void setPaused(boolean paused) {

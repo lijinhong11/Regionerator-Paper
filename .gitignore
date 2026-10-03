@@ -4,6 +4,8 @@
 /.settings/
 /target/
 /dependency-reduced-pom.xml
+/.gradle/
+/build/
 /.idea/
 *.iml
 .paper-nms/

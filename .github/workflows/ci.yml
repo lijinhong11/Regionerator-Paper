@@ -7,4 +7,4 @@ on:
 
 jobs:
   run-ci:
-    uses: Jikoo/PlanarActions/.github/workflows/ci_maven.yml@master
+    uses: ./.github/workflows/ci_gradle.yml

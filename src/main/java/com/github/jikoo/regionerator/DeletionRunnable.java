@@ -13,7 +13,7 @@ package com.github.jikoo.regionerator;
 import com.github.jikoo.regionerator.world.ChunkInfo;
 import com.github.jikoo.regionerator.world.RegionInfo;
 import com.github.jikoo.regionerator.world.WorldInfo;
-import com.tcoded.folialib.wrapper.task.WrappedTask;
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
+import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftChunk;
 import org.bukkit.plugin.IllegalPluginAccessException;
@@ -37,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Runnable for checking and deleting chunks and regions.
  */
-public class DeletionRunnable implements Consumer<WrappedTask> {
+public class DeletionRunnable implements Consumer<ScheduledTask> {
     private static final String STATS_FORMAT = "%s: checked %s, deleted %s regions & %s chunks";
 
     private final @NotNull Regionerator plugin;
@@ -52,7 +53,7 @@ public class DeletionRunnable implements Consumer<WrappedTask> {
     private long nextLogSecond = Instant.now().getEpochSecond() + 5;
     private int nextLogCount = 20;
 
-    private WrappedTask taskInstance;
+    private ScheduledTask taskInstance;
     private Set<Long> lessInteractChunks = Set.of();
 
     DeletionRunnable(@NotNull Regionerator plugin, @NotNull World world) {
@@ -63,7 +64,7 @@ public class DeletionRunnable implements Consumer<WrappedTask> {
     }
 
     @Override
-    public void accept(WrappedTask task) {
+    public void accept(ScheduledTask task) {
         if (this.world == null) {
             throw new IllegalStateException("Cannot reuse deletion runnable!");
         }
@@ -95,7 +96,7 @@ public class DeletionRunnable implements Consumer<WrappedTask> {
         // If configured to remember cycle delays across restarts, do post-run callback on the main thread.
         if (plugin.config().isRememberCycleDelay()) {
             try {
-                plugin.getScheduler().runNextTick(t -> plugin.finishCycle(this));
+                Bukkit.getGlobalRegionScheduler().run(plugin, t -> plugin.finishCycle(this));
             } catch (IllegalPluginAccessException e) {
                 // Plugin disabling, odds are on that we were mid-cycle. Don't update finish time.
             }

@@ -11,12 +11,14 @@
 package com.github.jikoo.regionerator.util.yaml;
 
 import com.github.jikoo.regionerator.Regionerator;
-import com.tcoded.folialib.wrapper.task.WrappedTask;
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Level;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.serialization.ConfigurationSerializable;
@@ -31,7 +33,7 @@ public abstract class YamlData {
     private final @NotNull Consumer<FileConfiguration> saveConsumer;
     private FileConfiguration storage;
     private boolean dirty = false;
-    private WrappedTask saveTask;
+    private ScheduledTask saveTask;
 
     public YamlData(
             @NotNull Regionerator plugin,
@@ -120,7 +122,7 @@ public abstract class YamlData {
             return;
         }
         try {
-            saveTask = plugin.getScheduler().runTimer(this::saveNow, 1L, 200L);
+            saveTask = Bukkit.getAsyncScheduler().runAtFixedRate(plugin, t -> saveNow(), 1L, 30L, TimeUnit.SECONDS);
         } catch (IllegalStateException e) {
             // Plugin is being disabled, cannot schedule tasks
             saveNow();

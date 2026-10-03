@@ -11,21 +11,26 @@ environment:
 init:
   - cmd: SET PATH=%JAVA_HOME%\bin;%PATH%
 install:
-  - cmd: SET MAVEN_OPTS=-Xmx4g
   - cmd: SET JAVA_OPTS=-Xmx4g
-  - cmd: mvn --version
+  - cmd: gradlew.bat --version
   - cmd: java -version
 build_script:
-  - mvn clean package -DskipTests
+  - cmd: gradlew.bat --no-daemon clean assemble
 test_script:
-  - mvn surefire:test
+  - cmd: gradlew.bat --no-daemon check
 cache:
-  - C:\Users\appveyor\.m2
+  - C:\Users\appveyor\.gradle
 artifacts:
-  - path: target\Regionerator.jar
+  - path: build\libs\Regionerator-3.0.3-SNAPSHOT-FORK.jar
     name: Regionerator
 only_commits:
   files:
     - src/**/*
-    - pom.xml
+    - build.gradle.kts
+    - settings.gradle.kts
+    - gradle.properties
+    - gradle/**/*
+    - gradlew
+    - gradlew.bat
+    - header.txt
     - appveyor.yml

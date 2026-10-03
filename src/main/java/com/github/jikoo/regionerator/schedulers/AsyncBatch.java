@@ -11,8 +11,9 @@
 package com.github.jikoo.regionerator.schedulers;
 
 import com.github.jikoo.regionerator.Regionerator;
-import com.tcoded.folialib.wrapper.task.WrappedTask;
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import java.util.concurrent.TimeUnit;
+import org.bukkit.Bukkit;
 import org.jetbrains.annotations.NotNull;
 
 public abstract class AsyncBatch<T> extends Batch<T> {
@@ -23,7 +24,12 @@ public abstract class AsyncBatch<T> extends Batch<T> {
 
     @Override
     @NotNull
-    WrappedTask schedule(@NotNull Runnable runnable) {
-        return this.plugin.getScheduler().runLaterAsync(runnable, this.gatherTicks);
+    ScheduledTask schedule(@NotNull Runnable runnable) {
+        if (gatherTicks <= 0) {
+            return Bukkit.getAsyncScheduler().runNow(plugin, t -> runnable.run());
+        } else {
+            return Bukkit.getAsyncScheduler()
+                    .runDelayed(plugin, t -> runnable.run(), gatherTicks / 20, TimeUnit.SECONDS);
+        }
     }
 }

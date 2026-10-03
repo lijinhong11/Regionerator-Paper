@@ -12,7 +12,7 @@ package com.github.jikoo.regionerator.schedulers;
 
 import com.github.jikoo.planarwrappers.scheduler.TickTimeUnit;
 import com.github.jikoo.regionerator.Regionerator;
-import com.tcoded.folialib.wrapper.task.WrappedTask;
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -30,7 +30,7 @@ import org.jetbrains.annotations.UnmodifiableView;
 public abstract class Batch<T> {
 
     private final @NotNull Set<T> elements = Collections.newSetFromMap(new ConcurrentHashMap<>());
-    private final @NotNull AtomicReference<WrappedTask> task = new AtomicReference<>();
+    private final @NotNull AtomicReference<ScheduledTask> task = new AtomicReference<>();
     final @NotNull Regionerator plugin;
     final long gatherTicks;
 
@@ -55,7 +55,7 @@ public abstract class Batch<T> {
         this.task.set(this.schedule(this::run));
     }
 
-    abstract @NotNull WrappedTask schedule(@NotNull Runnable runnable);
+    abstract @NotNull ScheduledTask schedule(@NotNull Runnable runnable);
 
     private void run() {
         // Copy all elements to a new set, clearing original in the process.

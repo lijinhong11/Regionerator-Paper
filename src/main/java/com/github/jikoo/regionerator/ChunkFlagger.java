@@ -18,10 +18,12 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.regex.Pattern;
+import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -62,7 +64,8 @@ public class ChunkFlagger {
         flagCache.lazyExpireAll();
 
         // Even if cache is stagnant, save every 10 minutes
-        plugin.getScheduler().runTimerAsync(flagCache::lazyExpireAll, 10 * 60 * 20, 10 * 60 * 20);
+        Bukkit.getAsyncScheduler()
+                .runAtFixedRate(plugin, t -> flagCache.lazyExpireAll(), 10 * 60, 10 * 60, TimeUnit.SECONDS);
     }
 
     /**

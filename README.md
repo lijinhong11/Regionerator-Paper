@@ -11,6 +11,27 @@ A Bukkit plugin for gradually deleting unused area, allowing you to free up disk
 3. Can configure interaction times and inhabitedtime checks to the region  
    (If you don't know what inhabited time is, see: https://minecraft.wiki/w/Chunk_format)
 
+## Building
+
+Use the included Gradle Wrapper with JDK 21 or newer. Gradle provisions the JDK 25
+compiler and JDK 21 paperweight toolchain when needed; plugin bytecode targets Java 21.
+
+```sh
+bash ./gradlew build
+```
+
+On Windows, run `.\gradlew.bat build`.
+The server-ready, Mojang-mapped plugin is `build/libs/Regionerator-3.0.3-SNAPSHOT-FORK.jar`.
+The `-plain.jar` is the unshaded development artifact.
+
+Useful tasks:
+
+- `bash ./gradlew test` runs the tests.
+- `bash ./gradlew spotlessCheck` checks formatting; `bash ./gradlew spotlessApply` fixes it.
+- `bash ./gradlew publishToMavenLocal` publishes the shaded artifact for local consumers.
+
+The build uses the Folia 1.21.8 development bundle through paperweight-userdev.
+
 ## Notes
 
 Please refer to [the wiki](https://github.com/Jikoo/Regionerator/wiki) for more information.

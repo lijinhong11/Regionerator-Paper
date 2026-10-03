@@ -105,7 +105,7 @@ public class VisitStatusCache extends CachingSupplier<VisitStatus> {
 
                         // Query remaining hooks on main thread.
                         AtomicReference<VisitStatus> visitStatus = new AtomicReference<>();
-                        plugin.getScheduler().runNextTick(t -> {
+                        Bukkit.getGlobalRegionScheduler().run(plugin, t -> {
                             for (Hook hook : syncHooks) {
                                 if (hook.isChunkProtected(world.getWorld(), chunkX, chunkZ)) {
                                     plugin.debug(

@@ -13,12 +13,7 @@ package com.github.jikoo.regionerator.commands;
 import com.github.jikoo.planarwrappers.util.Coords;
 import com.github.jikoo.regionerator.Regionerator;
 import com.github.jikoo.regionerator.util.yaml.Config;
-import com.sk89q.worldedit.LocalSession;
-import com.sk89q.worldedit.WorldEdit;
-import com.sk89q.worldedit.bukkit.BukkitAdapter;
-import com.sk89q.worldedit.regions.Region;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -136,37 +131,30 @@ public class FlagHandler {
     }
 
     private @Nullable Set<ChunkPosition> getWorldEditSelection(@NotNull Player player) {
-        try {
-            Class.forName("com.sk89q.worldedit.WorldEdit");
-        } catch (ClassNotFoundException e) {
+        if (!isWorldEditAvailable()) {
             player.sendMessage("WorldEdit must be enabled to (un)flag selection!");
             return null;
         }
 
-        LocalSession session = WorldEdit.getInstance().getSessionManager().getIfPresent(BukkitAdapter.adapt(player));
-
-        if (session == null || session.getSelectionWorld() == null) {
-            player.sendMessage("You must select an area with WorldEdit to (un)flag!");
-            return null;
-        }
-
-        Region selection = null;
         try {
-            selection = session.getSelection(session.getSelectionWorld());
-        } catch (Exception ignored) {
-            // If there was an exception getting their selection, they probably don't have one.
-        }
-
-        if (selection == null) {
-            player.sendMessage("You must select an area with WorldEdit to (un)flag!");
+            return WorldEditSelectionHandler.getSelection(player);
+        } catch (IllegalStateException e) {
+            player.sendMessage(e.getMessage());
+            return null;
+        } catch (LinkageError e) {
+            player.sendMessage("The installed WorldEdit version is not compatible with Regionerator!");
             return null;
         }
-
-        String worldName = session.getSelectionWorld().getName();
-        return selection.getChunks().stream()
-                .map(vector -> new ChunkPosition(worldName, vector.x(), vector.z()))
-                .collect(Collectors.toUnmodifiableSet());
     }
 
-    private record ChunkPosition(String name, int chunkX, int chunkZ) {}
+    private boolean isWorldEditAvailable() {
+        try {
+            Class.forName("com.sk89q.worldedit.WorldEdit", false, getClass().getClassLoader());
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+
+    static record ChunkPosition(String name, int chunkX, int chunkZ) {}
 }
