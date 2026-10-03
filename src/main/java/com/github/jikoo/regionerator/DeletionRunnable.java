@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -25,8 +26,8 @@ import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
-import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftChunk;
 import org.bukkit.plugin.IllegalPluginAccessException;
@@ -52,7 +53,7 @@ public class DeletionRunnable implements Consumer<WrappedTask> {
     private int nextLogCount = 20;
 
     private WrappedTask taskInstance;
-    private List<Chunk> lessInteractChunks = new ArrayList<>();
+    private Set<Long> lessInteractChunks = Set.of();
 
     DeletionRunnable(@NotNull Regionerator plugin, @NotNull World world) {
         this.plugin = plugin;
@@ -283,7 +284,7 @@ public class DeletionRunnable implements Consumer<WrappedTask> {
             return true;
         }
 
-        if (containsChunk(lessInteractChunks, world, chunkInfo.getChunkX(), chunkInfo.getChunkZ())) {
+        if (lessInteractChunks.contains(ChunkPos.asLong(chunkInfo.getChunkX(), chunkInfo.getChunkZ()))) {
             plugin.debug(
                     DebugLevel.HIGH,
                     () -> String.format(
@@ -342,11 +343,6 @@ public class DeletionRunnable implements Consumer<WrappedTask> {
         }
 
         return visitStatus.ordinal() < VisitStatus.VISITED.ordinal();
-    }
-
-    static boolean containsChunk(List<Chunk> chunks, World world, int chunkX, int chunkZ) {
-        return chunks.stream()
-                .anyMatch(chunk -> chunk.getWorld() == world && chunk.getX() == chunkX && chunk.getZ() == chunkZ);
     }
 
     private void writeRegion(@NotNull RegionInfo region, List<ChunkInfo> chunks) {

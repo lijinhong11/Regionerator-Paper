@@ -101,9 +101,9 @@ public class FlaggingListener implements Listener {
      * DistributedTask for periodically marking chunks near players as visited.
      */
     private static class FlaggingRunnable implements Consumer<WrappedTask> {
-        private final Set<Player> allContent = new HashSet<>();
-        private final @NotNull Set<Player> @NotNull [] distributedContent;
-        private final @NotNull Consumer<Collection<Player>> consumer;
+        private final Set<UUID> allContent = new HashSet<>();
+        private final @NotNull Set<UUID> @NotNull [] distributedContent;
+        private final @NotNull Consumer<Collection<UUID>> consumer;
         private WrappedTask taskInstance;
         private int currentIndex = 0;
 
@@ -122,7 +122,12 @@ public class FlaggingListener implements Listener {
 
             consumer = players -> {
                 List<ChunkId> flagged = new ArrayList<>();
-                for (Player player : players) {
+                for (UUID playerId : players) {
+                    Player player = plugin.getServer().getPlayer(playerId);
+                    if (player == null) {
+                        continue;
+                    }
+
                     if (player.getGameMode().name().equals("SPECTATOR")
                             || !plugin.config().isEnabled(player.getWorld().getName())) {
                         continue;
@@ -142,7 +147,8 @@ public class FlaggingListener implements Listener {
         }
 
         public void add(@NotNull Player content) {
-            if (this.allContent.add(content)) {
+            UUID playerId = content.getUniqueId();
+            if (this.allContent.add(playerId)) {
                 int lowestSize = Integer.MAX_VALUE;
                 int lowestIndex = 0;
 
@@ -154,14 +160,15 @@ public class FlaggingListener implements Listener {
                     }
                 }
 
-                this.distributedContent[lowestIndex].add(content);
+                this.distributedContent[lowestIndex].add(playerId);
             }
         }
 
         public void remove(@NotNull Player content) {
-            if (this.allContent.remove(content)) {
-                for (Set<Player> contentPartition : this.distributedContent) {
-                    if (contentPartition.remove(content)) {
+            UUID playerId = content.getUniqueId();
+            if (this.allContent.remove(playerId)) {
+                for (Set<UUID> contentPartition : this.distributedContent) {
+                    if (contentPartition.remove(playerId)) {
                         break;
                     }
                 }

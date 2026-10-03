@@ -10,22 +10,25 @@
  */
 package com.github.jikoo.regionerator.activity;
 
-import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import net.minecraft.world.level.ChunkPos;
 import org.bukkit.Chunk;
 import org.bukkit.World;
 
 public class ChunkActivityTracker {
-    private final ConcurrentHashMap<Chunk, ActivityWindow> activityMap = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, ConcurrentHashMap<Long, ActivityWindow>> activityMap = new ConcurrentHashMap<>();
 
     public void recordActivity(Chunk chunk) {
         long now = System.currentTimeMillis();
 
-        activityMap.compute(chunk, (c, window) -> {
+        ConcurrentHashMap<Long, ActivityWindow> worldActivity =
+                activityMap.computeIfAbsent(chunk.getWorld().getName(), name -> new ConcurrentHashMap<>());
+        worldActivity.compute(ChunkPos.asLong(chunk.getX(), chunk.getZ()), (key, window) -> {
             if (window == null) {
                 return new ActivityWindow(now);
             }
@@ -34,25 +37,27 @@ public class ChunkActivityTracker {
         });
     }
 
-    public List<Chunk> pollExpiredChunks(World world, int days, int minInteractions) {
+    public Set<Long> pollExpiredChunks(World world, int days, int minInteractions) {
+        ConcurrentHashMap<Long, ActivityWindow> worldActivity = activityMap.get(world.getName());
+        if (worldActivity == null) {
+            return Set.of();
+        }
+
         long now = System.currentTimeMillis();
         long windowMillis = TimeUnit.DAYS.toMillis(days);
 
-        List<Chunk> expired = new ArrayList<>();
+        Set<Long> expired = new HashSet<>();
 
-        Iterator<Map.Entry<Chunk, ActivityWindow>> it = activityMap.entrySet().iterator();
+        Iterator<Map.Entry<Long, ActivityWindow>> it = worldActivity.entrySet().iterator();
         while (it.hasNext()) {
-            Map.Entry<Chunk, ActivityWindow> entry = it.next();
-
-            Chunk chunk = entry.getKey();
-            if (!chunk.getWorld().equals(world)) continue;
+            Map.Entry<Long, ActivityWindow> entry = it.next();
 
             ActivityWindow window = entry.getValue();
 
             if (now - window.getWindowStart() < windowMillis) continue;
 
             if (minInteractions > 0 && window.getCount() < minInteractions) {
-                expired.add(chunk);
+                expired.add(entry.getKey());
             }
 
             it.remove();
