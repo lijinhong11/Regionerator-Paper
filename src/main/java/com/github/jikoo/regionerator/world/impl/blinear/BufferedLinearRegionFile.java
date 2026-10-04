@@ -48,6 +48,11 @@ import org.jetbrains.annotations.Nullable;
 import org.jspecify.annotations.NonNull;
 
 /**
+ * <b>Source is copied from LophineLabs/Lophine</b><br>
+ * Thanks to their effort!
+ * <p>
+ * Edited by lijinhong11
+ * </p><br>
  * Lock hierarchy (always acquire top to bottom, never the reverse):
  * <ol>
  *     <li>{@code syncLock}         — serializes master file syncs against close</li>

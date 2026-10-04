@@ -21,6 +21,12 @@ import java.util.concurrent.*;
 import org.apache.commons.lang3.Validate;
 import org.slf4j.Logger;
 
+/**
+ * Source is copied from LophineLabs/Lophine<br>
+ * Thanks to their effort!
+ * <p>
+ * Edited by lijinhong11
+ */
 public class BufferedLinearRegionFileFlusher implements Runnable {
     private static final Logger logger = LogUtils.getLogger();
 

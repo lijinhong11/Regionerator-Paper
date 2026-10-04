@@ -30,7 +30,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public class BufferedLinearWorld extends WorldInfo {
-    private static final Pattern FILE_NAME_PATTERN = Pattern.compile("^r\\.(-?\\d+)\\.(-?\\d+)(\\.linear)$");
+    private static final Pattern FILE_NAME_PATTERN = Pattern.compile("^r\\.(-?\\d+)\\.(-?\\d+)(\\.b_linear)$");
 
     private final BufferedLinearRegionFileFlusher flusher;
 
@@ -42,7 +42,7 @@ public class BufferedLinearWorld extends WorldInfo {
 
     @Override
     public @NotNull RegionInfo getRegion(int regionX, int regionZ) {
-        return createRegionFile("region/r." + regionX + "." + regionZ + ".linear", regionX, regionZ);
+        return createRegionFile("region/r." + regionX + "." + regionZ + ".b_linear", regionX, regionZ);
     }
 
     @Override

@@ -38,7 +38,7 @@ Please refer to [the wiki](https://github.com/Jikoo/Regionerator/wiki) for more 
 
 This work is licensed under a [Creative Commons Attribution-ShareAlike 4.0 International License](http://creativecommons.org/licenses/by-sa/4.0/).  
   
-The [LinearRegion class](/src/main/java/com/github/jikoo/regionerator/world/impl/linear/LinearRegion.java) is from [LuminolMC/Luminol](https://github.com/LuminolMC/Luminol)(The repo is deleted, you can also see [Leaf](https://github.com/Winds-Studio/Leaf)) under [GPL v3 License](LinearRegion_LICENSE.md).
+The [LinearRegion class](/src/main/java/com/github/jikoo/regionerator/world/impl/linear/LinearRegion.java) is from [LuminolMC/Luminol](https://github.com/LuminolMC/Luminol)(The repo is deleted, you can also see [Leaf](https://github.com/Winds-Studio/Leaf)) under [GPL v3 License](LinearRegionFile_LICENSE.md).
 
 ## Disclaimer
 Regionerator directly modifies and deletes region files.    

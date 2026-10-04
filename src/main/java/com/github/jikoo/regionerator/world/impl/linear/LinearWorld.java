@@ -75,13 +75,13 @@ public class LinearWorld extends WorldInfo {
         return createRegionFile(relativePath, Integer.parseInt(matcher.group(1)), Integer.parseInt(matcher.group(2)));
     }
 
-    private LinearRegion createRegionFile(int chunkX, int chunkZ) {
+    private LinearRegionFile createRegionFile(int chunkX, int chunkZ) {
         return createRegionFile("region/r." + chunkX + "." + chunkZ + ".linear", chunkX, chunkZ);
     }
 
-    private LinearRegion createRegionFile(String relativePath, int chunkX, int chunkZ) {
+    private LinearRegionFile createRegionFile(String relativePath, int chunkX, int chunkZ) {
         Path linear = findWorldDataFolder().toPath().resolve(relativePath);
-        return new LinearRegion(this, linear, 1, chunkX, chunkZ, bridge);
+        return new LinearRegionFile(this, linear, 1, chunkX, chunkZ, bridge);
     }
 
     public void close() {

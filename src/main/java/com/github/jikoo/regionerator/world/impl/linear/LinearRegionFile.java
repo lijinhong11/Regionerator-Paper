@@ -37,14 +37,14 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * Source is copied from LuminolMC/Luminol<br>
+ * <b>Source is copied from LuminolMC/Luminol</b><br>
  * Thanks to their effort!
  * <p>
  * Edited by lijinhong11
  */
 // LinearRegionFile_implementation_version_0_5byXymb
 // Just gonna use this string to inform other forks about updates ;-)
-public class LinearRegion extends RegionInfo {
+public class LinearRegionFile extends RegionInfo {
     private static final long SUPERBLOCK = 0xc3ff13183cca9d9aL;
     private static final byte VERSION = 3;
     private static final int HEADER_SIZE = 27;
@@ -74,11 +74,11 @@ public class LinearRegion extends RegionInfo {
 
     @ApiStatus.Internal
     @TestOnly
-    public LinearRegion(WorldInfo worldInfo, Path path, int compressionLevel, int lowestRegionX, int lowestRegionZ) {
+    public LinearRegionFile(WorldInfo worldInfo, Path path, int compressionLevel, int lowestRegionX, int lowestRegionZ) {
         this(worldInfo, path, compressionLevel, lowestRegionX, lowestRegionZ, null);
     }
 
-    LinearRegion(
+    LinearRegionFile(
             WorldInfo worldInfo,
             Path path,
             int compressionLevel,
