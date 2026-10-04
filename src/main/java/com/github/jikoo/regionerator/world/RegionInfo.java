@@ -10,8 +10,8 @@
  */
 package com.github.jikoo.regionerator.world;
 
-import com.github.jikoo.planarwrappers.util.Coords;
 import com.github.jikoo.regionerator.Regionerator;
+import com.github.jikoo.regionerator.util.object.Coordinates;
 import java.io.IOException;
 import java.util.stream.Stream;
 import org.bukkit.World;
@@ -116,7 +116,7 @@ public abstract class RegionInfo {
      * @return the identifier
      */
     public @NotNull String getIdentifier() {
-        return Coords.chunkToRegion(getLowestChunkX()) + "_" + Coords.chunkToRegion(getLowestChunkZ());
+        return Coordinates.chunkToRegion(getLowestChunkX()) + "_" + Coordinates.chunkToRegion(getLowestChunkZ());
     }
 
     /**

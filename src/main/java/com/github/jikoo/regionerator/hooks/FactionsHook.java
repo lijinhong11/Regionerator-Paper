@@ -10,7 +10,7 @@
  */
 package com.github.jikoo.regionerator.hooks;
 
-import com.github.jikoo.planarwrappers.function.ThrowingTriFunction;
+import com.github.jikoo.regionerator.util.object.ThrowableTriFunction;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import org.bukkit.World;
@@ -25,7 +25,7 @@ public class FactionsHook extends PluginHook {
     private @NotNull Method boardSingleton;
     private @NotNull Method boardGetFaction;
     private @NotNull Method factionIsWilderness;
-    private @NotNull ThrowingTriFunction<String, Integer, Integer, Object, ReflectiveOperationException> getLocation;
+    private @NotNull ThrowableTriFunction<String, Integer, Integer, Object, ReflectiveOperationException> getLocation;
 
     public FactionsHook() throws ReflectiveOperationException {
         super("Factions");

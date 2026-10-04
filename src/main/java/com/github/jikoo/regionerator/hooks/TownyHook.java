@@ -10,7 +10,7 @@
  */
 package com.github.jikoo.regionerator.hooks;
 
-import com.github.jikoo.planarwrappers.util.Coords;
+import com.github.jikoo.regionerator.util.object.Coordinates;
 import com.palmergames.bukkit.towny.TownyAPI;
 import com.palmergames.bukkit.towny.object.Coord;
 import com.palmergames.bukkit.towny.object.TownBlock;
@@ -33,9 +33,9 @@ public class TownyHook extends PluginHook {
             return false;
         }
 
-        int minX = Coords.chunkToBlock(chunkX);
+        int minX = Coordinates.chunkToBlock(chunkX);
         int maxX = minX + 15;
-        int minZ = Coords.chunkToBlock(chunkZ);
+        int minZ = Coordinates.chunkToBlock(chunkZ);
         int maxZ = minZ + 15;
 
         Coord lowCoord = Coord.parseCoord(minX, minZ);

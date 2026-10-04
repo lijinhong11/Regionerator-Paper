@@ -10,7 +10,7 @@
  */
 package com.github.jikoo.regionerator.hooks;
 
-import com.github.jikoo.planarwrappers.util.Coords;
+import com.github.jikoo.regionerator.util.object.Coordinates;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -39,17 +39,17 @@ public class VanillaSpawnProtectionHook extends Hook {
         }
 
         // Convert to chunk protection radius
-        protectionRadius = Coords.blockToChunk(protectionRadius);
+        protectionRadius = Coordinates.blockToChunk(protectionRadius);
 
         Location spawn = chunkWorld.getSpawnLocation();
 
-        int spawnChunkX = Coords.blockToChunk(spawn.getBlockX());
+        int spawnChunkX = Coordinates.blockToChunk(spawn.getBlockX());
         if (chunkX > spawnChunkX + protectionRadius || chunkX < spawnChunkX - protectionRadius) {
             // Chunk x is outside of protection radius
             return false;
         }
 
-        int spawnChunkZ = Coords.blockToChunk(spawn.getBlockZ());
+        int spawnChunkZ = Coordinates.blockToChunk(spawn.getBlockZ());
 
         return chunkZ <= spawnChunkZ + protectionRadius && chunkZ >= spawnChunkZ - protectionRadius;
     }

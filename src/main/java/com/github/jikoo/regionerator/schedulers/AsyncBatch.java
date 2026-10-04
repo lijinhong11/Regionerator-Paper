@@ -25,11 +25,6 @@ public abstract class AsyncBatch<T> extends Batch<T> {
     @Override
     @NotNull
     ScheduledTask schedule(@NotNull Runnable runnable) {
-        if (gatherTicks <= 0) {
-            return Bukkit.getAsyncScheduler().runNow(plugin, t -> runnable.run());
-        } else {
-            return Bukkit.getAsyncScheduler()
-                    .runDelayed(plugin, t -> runnable.run(), gatherTicks / 20, TimeUnit.SECONDS);
-        }
+        return Bukkit.getAsyncScheduler().runDelayed(plugin, t -> runnable.run(), gatherPeriod, gatherUnit);
     }
 }

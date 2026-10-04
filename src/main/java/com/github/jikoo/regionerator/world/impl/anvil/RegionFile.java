@@ -10,7 +10,7 @@
  */
 package com.github.jikoo.regionerator.world.impl.anvil;
 
-import com.github.jikoo.planarwrappers.util.Coords;
+import com.github.jikoo.regionerator.util.object.Coordinates;
 import com.google.common.annotations.Beta;
 import java.io.IOException;
 import java.io.InputStream;
@@ -355,7 +355,8 @@ public class RegionFile implements AutoCloseable {
         int localX = unpackLocalX(index);
         int localZ = unpackLocalZ(index);
         String fileName = String.format(
-                "c.%s.%s.mcc", Coords.regionToChunk(regionX) + localX, Coords.regionToChunk(regionZ) + localZ);
+                "c.%s.%s.mcc",
+                Coordinates.regionToChunk(regionX) + localX, Coordinates.regionToChunk(regionZ) + localZ);
         return regionPath.resolveSibling(fileName);
     }
 

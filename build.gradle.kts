@@ -29,8 +29,6 @@ dependencies {
     paperweight.foliaDevBundle("1.21.11-R0.1-SNAPSHOT")
     compileOnly("org.jetbrains:annotations:26.1.0")
 
-    implementation("com.github.jikoo:planarwrappers:4.0.0")
-
     // Artifact-only dependencies avoid importing the plugins' conflicting server-library
     // constraints. They are supplied by the corresponding plugins at runtime.
     compileOnly("com.sk89q.worldedit:worldedit-core:7.4.2@jar")

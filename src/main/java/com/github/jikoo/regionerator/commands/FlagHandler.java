@@ -10,8 +10,8 @@
  */
 package com.github.jikoo.regionerator.commands;
 
-import com.github.jikoo.planarwrappers.util.Coords;
 import com.github.jikoo.regionerator.Regionerator;
+import com.github.jikoo.regionerator.util.object.Coordinates;
 import com.github.jikoo.regionerator.util.yaml.Config;
 import java.util.Set;
 import org.bukkit.Location;
@@ -89,8 +89,8 @@ public class FlagHandler {
             Location location = player.getLocation();
             return Set.of(new ChunkPosition(
                     player.getWorld().getName(),
-                    Coords.blockToChunk(location.getBlockX()),
-                    Coords.blockToChunk(location.getBlockZ())));
+                    Coordinates.blockToChunk(location.getBlockX()),
+                    Coordinates.blockToChunk(location.getBlockZ())));
         }
 
         // 2 args guaranteed, safe

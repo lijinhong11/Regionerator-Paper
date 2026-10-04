@@ -10,7 +10,7 @@
  */
 package com.github.jikoo.regionerator.world.impl.anvil;
 
-import com.github.jikoo.planarwrappers.function.ThrowingFunction;
+import com.github.jikoo.regionerator.util.object.ThrowableFunction;
 import java.io.*;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.GZIPInputStream;
@@ -28,12 +28,12 @@ enum RegionCompression {
             (out) -> new BufferedOutputStream(new DeflaterOutputStream(out))),
     NONE((in) -> in, (out) -> out);
 
-    private final ThrowingFunction<InputStream, InputStream, IOException> decodeIn;
-    private final ThrowingFunction<OutputStream, OutputStream, IOException> encodeOut;
+    private final ThrowableFunction<InputStream, InputStream, IOException> decodeIn;
+    private final ThrowableFunction<OutputStream, OutputStream, IOException> encodeOut;
 
     RegionCompression(
-            ThrowingFunction<InputStream, InputStream, IOException> decodeIn,
-            ThrowingFunction<OutputStream, OutputStream, IOException> encodeOut) {
+            ThrowableFunction<InputStream, InputStream, IOException> decodeIn,
+            ThrowableFunction<OutputStream, OutputStream, IOException> encodeOut) {
         this.decodeIn = decodeIn;
         this.encodeOut = encodeOut;
     }

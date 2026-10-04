@@ -10,7 +10,7 @@
  */
 package com.github.jikoo.regionerator.hooks;
 
-import com.github.jikoo.planarwrappers.util.Coords;
+import com.github.jikoo.regionerator.util.object.Coordinates;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -60,8 +60,8 @@ public abstract class Hook {
                 // Check 2 regions away from spawn. This ensures that we're not in loaded area.
                 this.isChunkProtected(
                         world,
-                        Coords.blockToChunk(spawn.getBlockX()) + 64,
-                        Coords.blockToChunk(spawn.getBlockZ()) + 64);
+                        Coordinates.blockToChunk(spawn.getBlockX()) + 64,
+                        Coordinates.blockToChunk(spawn.getBlockZ()) + 64);
             }
         } catch (Exception e) {
             e.printStackTrace();

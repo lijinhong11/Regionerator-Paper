@@ -10,7 +10,7 @@
  */
 package com.github.jikoo.regionerator.hooks;
 
-import com.github.jikoo.planarwrappers.util.Coords;
+import com.github.jikoo.regionerator.util.object.Coordinates;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.jetbrains.annotations.NotNull;
@@ -43,8 +43,8 @@ public class BentoBoxHook extends PluginHook {
         // Distance between islands is always a half of actual value.
         final int increment = Math.min(distanceBetweenIslands, 8) * 2 - 1;
 
-        int locX = Coords.chunkToBlock(chunkX);
-        int locZ = Coords.chunkToBlock(chunkZ);
+        int locX = Coordinates.chunkToBlock(chunkX);
+        int locZ = Coordinates.chunkToBlock(chunkZ);
 
         IslandsManager manager = BentoBox.getInstance().getIslandsManager();
 

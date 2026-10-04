@@ -10,10 +10,10 @@
  */
 package com.github.jikoo.regionerator.commands;
 
-import com.github.jikoo.planarwrappers.util.Coords;
 import com.github.jikoo.regionerator.DeletionRunnable;
 import com.github.jikoo.regionerator.Regionerator;
 import com.github.jikoo.regionerator.hooks.Hook;
+import com.github.jikoo.regionerator.util.object.Coordinates;
 import com.github.jikoo.regionerator.util.yaml.Config;
 import com.github.jikoo.regionerator.world.ChunkInfo;
 import com.github.jikoo.regionerator.world.RegionInfo;
@@ -142,7 +142,7 @@ public class RegioneratorExecutor implements TabExecutor {
             SimpleDateFormat format = new SimpleDateFormat("HH:mm 'on' d MMM yyyy");
             RegionInfo regionInfo = plugin.getWorldManager()
                     .getWorld(player.getWorld())
-                    .getRegion(Coords.chunkToRegion(chunk.getX()), Coords.chunkToRegion(chunk.getZ()));
+                    .getRegion(Coordinates.chunkToRegion(chunk.getX()), Coordinates.chunkToRegion(chunk.getZ()));
             try {
                 if (!regionInfo.read()) {
                     player.sendMessage("Region is actively being read/written by server, cannot read chunk data.");

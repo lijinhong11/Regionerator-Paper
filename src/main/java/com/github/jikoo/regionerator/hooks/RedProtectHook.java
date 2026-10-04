@@ -12,7 +12,7 @@ package com.github.jikoo.regionerator.hooks;
 
 import br.net.fabiozumbi12.RedProtect.Bukkit.RedProtect;
 import br.net.fabiozumbi12.RedProtect.Bukkit.Region;
-import com.github.jikoo.planarwrappers.util.Coords;
+import com.github.jikoo.regionerator.util.object.Coordinates;
 import com.github.jikoo.regionerator.world.DummyChunk;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -60,10 +60,10 @@ public class RedProtectHook extends PluginHook {
         for (Region region : RedProtect.get().getRegionManager().getRegionsByWorld(chunkWorld.getName())) {
             Location min = region.getMinLocation();
             Location max = region.getMaxLocation();
-            if (Coords.blockToChunk(min.getBlockX()) > chunkX
-                    || Coords.blockToChunk(max.getBlockX()) < chunkX
-                    || Coords.blockToChunk(min.getBlockZ()) > chunkZ
-                    || Coords.blockToChunk(max.getBlockZ()) < chunkZ) {
+            if (Coordinates.blockToChunk(min.getBlockX()) > chunkX
+                    || Coordinates.blockToChunk(max.getBlockX()) < chunkX
+                    || Coordinates.blockToChunk(min.getBlockZ()) > chunkZ
+                    || Coordinates.blockToChunk(max.getBlockZ()) < chunkZ) {
                 continue;
             }
             return true;

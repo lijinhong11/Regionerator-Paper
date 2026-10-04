@@ -10,7 +10,6 @@
  */
 package com.github.jikoo.regionerator.schedulers;
 
-import com.github.jikoo.planarwrappers.scheduler.TickTimeUnit;
 import com.github.jikoo.regionerator.Regionerator;
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import java.util.Collections;
@@ -28,18 +27,19 @@ import org.jetbrains.annotations.UnmodifiableView;
  * @param <T>
  */
 public abstract class Batch<T> {
-
     private final @NotNull Set<T> elements = Collections.newSetFromMap(new ConcurrentHashMap<>());
     private final @NotNull AtomicReference<ScheduledTask> task = new AtomicReference<>();
     final @NotNull Regionerator plugin;
-    final long gatherTicks;
+    final long gatherPeriod;
+    final TimeUnit gatherUnit;
 
     protected Batch(@NotNull Regionerator plugin, long gatherPeriod, @NotNull TimeUnit gatherUnit) {
-        this.plugin = plugin;
-        this.gatherTicks = TickTimeUnit.toTicks(gatherPeriod, gatherUnit);
-        if (gatherTicks <= 0) {
-            throw new IllegalArgumentException("Gather ticks must be > 0");
+        if (gatherPeriod <= 0) {
+            throw new IllegalArgumentException("Gather period must be > 0");
         }
+        this.plugin = plugin;
+        this.gatherPeriod = gatherPeriod;
+        this.gatherUnit = gatherUnit;
     }
 
     public void add(@NotNull T element) {

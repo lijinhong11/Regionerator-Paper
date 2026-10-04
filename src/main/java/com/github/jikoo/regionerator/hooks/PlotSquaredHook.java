@@ -10,7 +10,7 @@
  */
 package com.github.jikoo.regionerator.hooks;
 
-import com.github.jikoo.planarwrappers.util.Coords;
+import com.github.jikoo.regionerator.util.object.Coordinates;
 import com.plotsquared.core.PlotSquared;
 import com.plotsquared.core.plot.PlotArea;
 import com.sk89q.worldedit.math.BlockVector3;
@@ -26,8 +26,8 @@ public class PlotSquaredHook extends PluginHook {
 
     @Override
     public boolean isChunkProtected(@NotNull World chunkWorld, int chunkX, int chunkZ) {
-        int chunkBlockX = Coords.chunkToBlock(chunkX);
-        int chunkBlockZ = Coords.chunkToBlock(chunkZ);
+        int chunkBlockX = Coordinates.chunkToBlock(chunkX);
+        int chunkBlockZ = Coordinates.chunkToBlock(chunkZ);
 
         BlockVector3 bottom = BlockVector3.at(chunkBlockX, 0, chunkBlockZ);
         BlockVector3 top = BlockVector3.at(chunkBlockX + 15, 255, chunkBlockZ + 15);

@@ -10,8 +10,8 @@
  */
 package com.github.jikoo.regionerator.world.impl.anvil;
 
-import com.github.jikoo.planarwrappers.util.Coords;
 import com.github.jikoo.regionerator.DebugLevel;
+import com.github.jikoo.regionerator.util.object.Coordinates;
 import com.github.jikoo.regionerator.world.ChunkInfo;
 import com.github.jikoo.regionerator.world.RegionInfo;
 import com.google.common.base.Preconditions;
@@ -50,7 +50,7 @@ public class AnvilRegion extends RegionInfo {
             int regionX,
             int regionZ,
             @NotNull String fileFormat) {
-        super(world, Coords.regionToChunk(regionX), Coords.regionToChunk(regionZ));
+        super(world, Coordinates.regionToChunk(regionX), Coordinates.regionToChunk(regionZ));
         this.worldDataFolder = worldDataFolder;
         this.fileName = String.format(fileFormat, regionX, regionZ);
 

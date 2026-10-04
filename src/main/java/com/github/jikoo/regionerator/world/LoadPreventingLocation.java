@@ -10,7 +10,7 @@
  */
 package com.github.jikoo.regionerator.world;
 
-import com.github.jikoo.planarwrappers.util.Coords;
+import com.github.jikoo.regionerator.util.object.Coordinates;
 import java.util.Objects;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -30,7 +30,8 @@ public class LoadPreventingLocation extends Location {
     @Override
     public @NotNull Chunk getChunk() {
         return new DummyChunk(
-                Objects.requireNonNull(getWorld()), Coords.blockToChunk((int) this.getX()), Coords.blockToChunk((int)
-                        this.getZ()));
+                Objects.requireNonNull(getWorld()),
+                Coordinates.blockToChunk((int) this.getX()),
+                Coordinates.blockToChunk((int) this.getZ()));
     }
 }

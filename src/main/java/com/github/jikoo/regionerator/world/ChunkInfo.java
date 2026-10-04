@@ -10,11 +10,11 @@
  */
 package com.github.jikoo.regionerator.world;
 
-import com.github.jikoo.planarwrappers.function.CachingSupplier;
 import com.github.jikoo.regionerator.Regionerator;
 import com.github.jikoo.regionerator.VisitStatus;
 import com.github.jikoo.regionerator.hooks.Hook;
 import com.github.jikoo.regionerator.util.VisitStatusCache;
+import java.util.function.Supplier;
 import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.jetbrains.annotations.NotNull;
@@ -26,7 +26,7 @@ public abstract class ChunkInfo {
 
     private final @NotNull RegionInfo regionInfo;
     private final int localChunkX, localChunkZ;
-    private final @NotNull CachingSupplier<VisitStatus> visitStatusSupplier;
+    private final @NotNull Supplier<VisitStatus> visitStatusSupplier;
 
     /**
      * Constructs a new ChunkInfo instance.

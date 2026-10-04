@@ -10,10 +10,9 @@
  */
 package com.github.jikoo.regionerator.listeners;
 
-import com.github.jikoo.planarwrappers.scheduler.TickTimeUnit;
-import com.github.jikoo.planarwrappers.util.Coords;
 import com.github.jikoo.regionerator.Regionerator;
 import com.github.jikoo.regionerator.schedulers.AsyncBatch;
+import com.github.jikoo.regionerator.util.object.Coordinates;
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import java.lang.reflect.Array;
 import java.util.concurrent.TimeUnit;
@@ -110,11 +109,11 @@ public class FlaggingListener implements Listener {
 
         FlaggingRunnable(@NotNull Regionerator plugin) {
             long period = plugin.config().getFlaggingInterval() * 50;
-            int totalTicks = (int) TickTimeUnit.toTicks(period, TimeUnit.MILLISECONDS);
-            if (totalTicks < 2) {
+            // int totalTicks = (int) TickTimeUnit.toTicks(period, TimeUnit.MILLISECONDS);
+            if (period < 100) {
                 throw new IllegalArgumentException("Period must be 2 ticks or greater");
             } else {
-                distributedContent = (Set<UUID>[]) Array.newInstance(this.allContent.getClass(), totalTicks);
+                distributedContent = (Set<UUID>[]) Array.newInstance(this.allContent.getClass(), (int) (period / 50));
 
                 for (int index = 0; index < this.distributedContent.length; ++index) {
                     this.distributedContent[index] = new HashSet<>();
@@ -214,8 +213,8 @@ public class FlaggingListener implements Listener {
 
         private ChunkId(@NotNull World world, @NotNull Location location) {
             this.worldName = world.getName();
-            this.chunkX = Coords.blockToChunk(location.getBlockX());
-            this.chunkZ = Coords.blockToChunk(location.getBlockZ());
+            this.chunkX = Coordinates.blockToChunk(location.getBlockX());
+            this.chunkZ = Coordinates.blockToChunk(location.getBlockZ());
         }
 
         @Override

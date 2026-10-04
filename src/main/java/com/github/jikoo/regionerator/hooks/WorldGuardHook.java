@@ -10,7 +10,7 @@
  */
 package com.github.jikoo.regionerator.hooks;
 
-import com.github.jikoo.planarwrappers.util.Coords;
+import com.github.jikoo.regionerator.util.object.Coordinates;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldguard.WorldGuard;
@@ -37,8 +37,8 @@ public class WorldGuardHook extends PluginHook {
             return false;
         }
 
-        int chunkBlockX = Coords.chunkToBlock(chunkX);
-        int chunkBlockZ = Coords.chunkToBlock(chunkZ);
+        int chunkBlockX = Coordinates.chunkToBlock(chunkX);
+        int chunkBlockZ = Coordinates.chunkToBlock(chunkZ);
 
         BlockVector3 bottom = BlockVector3.at(chunkBlockX, 0, chunkBlockZ);
         BlockVector3 top = BlockVector3.at(chunkBlockX + 15, 255, chunkBlockZ + 15);
