@@ -12,6 +12,7 @@ package com.github.jikoo.regionerator;
 
 import com.github.jikoo.regionerator.world.WorldInfo;
 import com.github.jikoo.regionerator.world.impl.anvil.AnvilWorld;
+import com.github.jikoo.regionerator.world.impl.blinear.BufferedLinearWorld;
 import com.github.jikoo.regionerator.world.impl.linear.LinearWorld;
 import java.util.HashMap;
 import java.util.Map;
@@ -36,13 +37,30 @@ public class WorldManager {
     }
 
     public void releaseWorld(@NotNull World world) {
-        worlds.remove(world.getName());
+        WorldInfo worldInfo = worlds.remove(world.getName());
+        if (worldInfo instanceof BufferedLinearWorld bufferedLinearWorld) {
+            bufferedLinearWorld.close();
+        } else if (worldInfo instanceof LinearWorld linearWorld) {
+            linearWorld.close();
+        }
+    }
+
+    public void close() {
+        worlds.values().forEach(worldInfo -> {
+            if (worldInfo instanceof BufferedLinearWorld bufferedLinearWorld) {
+                bufferedLinearWorld.close();
+            } else if (worldInfo instanceof LinearWorld linearWorld) {
+                linearWorld.close();
+            }
+        });
+        worlds.clear();
     }
 
     private @NotNull WorldInfo getWorldImpl(@NotNull World world) {
         return switch (regionImplementation) {
             case ANVIL -> new AnvilWorld(plugin, world);
             case LINEAR -> new LinearWorld(plugin, world);
+            case BLINEAR -> new BufferedLinearWorld(plugin, world);
             case NONE -> throw new IllegalArgumentException();
         };
     }

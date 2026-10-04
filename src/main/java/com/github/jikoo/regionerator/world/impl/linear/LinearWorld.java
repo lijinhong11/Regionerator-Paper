@@ -15,10 +15,10 @@ import com.github.jikoo.regionerator.world.RegionInfo;
 import com.github.jikoo.regionerator.world.WorldInfo;
 import com.github.jikoo.regionerator.world.impl.anvil.AnvilRegion;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
@@ -65,13 +65,6 @@ public class LinearWorld extends WorldInfo {
         return distinctRegionPaths(fileNames).stream().map(this::parseRegion).filter(Objects::nonNull);
     }
 
-    static List<String> distinctRegionPaths(List<String> paths) {
-        LinkedHashMap<String, String> distinct = new LinkedHashMap<>();
-        for (String path : paths)
-            distinct.putIfAbsent(Path.of(path).getFileName().toString(), path);
-        return List.copyOf(distinct.values());
-    }
-
     private @Nullable RegionInfo parseRegion(String relativePath) {
         Matcher matcher =
                 FILE_NAME_PATTERN.matcher(Path.of(relativePath).getFileName().toString());
@@ -89,5 +82,17 @@ public class LinearWorld extends WorldInfo {
     private LinearRegion createRegionFile(String relativePath, int chunkX, int chunkZ) {
         Path linear = findWorldDataFolder().toPath().resolve(relativePath);
         return new LinearRegion(this, linear, 1, chunkX, chunkZ, bridge);
+    }
+
+    public void close() {
+        if (bridge == null) {
+            return;
+        }
+
+        try {
+            bridge.synchronize();
+        } catch (IOException e) {
+            getPlugin().debug(() -> "Unable to flush linear region bridge", e);
+        }
     }
 }

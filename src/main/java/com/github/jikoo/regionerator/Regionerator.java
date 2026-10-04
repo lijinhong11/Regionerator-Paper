@@ -68,14 +68,16 @@ public class Regionerator extends JavaPlugin {
             if (regionImpl == RegionImplementation.NONE) {
                 getLogger()
                         .severe(
-                                "Region implementation is not set, plugin will shutdown! Available options: LINEAR, ANVIL");
+                                "Region implementation is not set, plugin will shutdown! Available options: LINEAR, BLINEAR, ANVIL");
                 getServer().getPluginManager().disablePlugin(this);
                 return;
             } else {
                 worldManager = new WorldManager(this, regionImpl);
             }
         } catch (Exception e) {
-            getLogger().severe("Wrong region implementation, plugin will shutdown! Available options: LINEAR, ANVIL");
+            getLogger()
+                    .severe(
+                            "Wrong region implementation, plugin will shutdown! Available options: LINEAR, BLINEAR, ANVIL");
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
@@ -139,6 +141,10 @@ public class Regionerator extends JavaPlugin {
         if (chunkFlagger != null) {
             getLogger().info("Shutting down flagger - currently holds " + chunkFlagger.getCached() + " flags.");
             chunkFlagger.shutdown();
+        }
+
+        if (worldManager != null) {
+            worldManager.close();
         }
 
         protectionHooks.clear();

@@ -13,24 +13,16 @@ version = "3.0.4-SNAPSHOT-FORK"
 
 repositories {
     mavenCentral()
-    maven("https://repo.tcoded.com/releases")
+    maven("https://repo.tcoded.com/releases/")
     maven("https://repo.papermc.io/repository/maven-public/")
     maven("https://hub.spigotmc.org/nexus/content/repositories/snapshots/")
     maven("https://maven.enginehub.org/repo/")
     maven("https://repo.codemc.org/repository/maven-public/")
-    maven("https://repo.glaremasters.me/repository/bloodshot")
-    maven("https://jitpack.io")
+    maven("https://repo.glaremasters.me/repository/bloodshot/")
+    maven("https://jitpack.io/")
     maven("https://raw.githubusercontent.com/FabioZumbi12/RedProtect/mvn-repo/")
-    // BentoBox's release POM declares a snapshot version; resolve only its JAR.
-    exclusiveContent {
-        forRepository {
-            maven("https://repo.codemc.org/repository/maven-public/") {
-                name = "bentoboxArtifacts"
-                metadataSources { artifact() }
-            }
-        }
-        filter { includeModule("world.bentobox", "bentobox") }
-    }
+    maven("https://repo.codemc.io/repository/bentoboxworld/")
+    maven("https://repo.codemc.io/repository/maven-public/")
 }
 
 dependencies {
@@ -50,8 +42,7 @@ dependencies {
     compileOnly("com.plotsquared:PlotSquared-Core:6.11.1@jar")
     // PlotSquared exposes Guice types in its API.
     compileOnly("com.google.inject:guice:5.1.0")
-    // The published 2.7.0 POM incorrectly declares 2.7.0-SNAPSHOT.
-    compileOnly("world.bentobox:bentobox:2.7.0@jar")
+    compileOnly("world.bentobox:bentobox:3.1.1-SNAPSHOT")
     compileOnly("com.griefdefender:api:2.1.1-SNAPSHOT") { isTransitive = false }
     compileOnly("com.github.cjburkey01:ClaimChunk:0.0.22") { isTransitive = false }
     compileOnly("com.github.angeschossen:LandsAPI:7.25.4") { isTransitive = false }

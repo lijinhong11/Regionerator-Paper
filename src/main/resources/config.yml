@@ -55,7 +55,7 @@ deletion:
 # The region format of the server using.
 # Requires server restart!
 # You need to set it to other things instead of NONE to enable Regionerator!
-# Usable region formats: ANVIL, LINEAR
+# Usable region formats: ANVIL, LINEAR, BLINEAR
 world-implementation: NONE
 
 # Worlds the plugin is able to delete regions in

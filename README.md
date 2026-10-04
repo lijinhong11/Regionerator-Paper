@@ -21,7 +21,7 @@ bash ./gradlew build
 ```
 
 On Windows, run `.\gradlew.bat build`.
-The server-ready, Mojang-mapped plugin is `build/libs/Regionerator-3.0.3-SNAPSHOT-FORK.jar`.
+The server-ready, Mojang-mapped plugin is `build/libs/Regionerator-XXX-SNAPSHOT-FORK.jar`.
 The `-plain.jar` is the unshaded development artifact.
 
 Useful tasks:

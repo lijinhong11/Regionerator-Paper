@@ -12,6 +12,9 @@ package com.github.jikoo.regionerator.world;
 
 import com.github.jikoo.regionerator.Regionerator;
 import java.io.File;
+import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
@@ -89,6 +92,13 @@ public abstract class WorldInfo {
         }
 
         return getDimFolder(world.getEnvironment(), worldFolder);
+    }
+
+    protected List<String> distinctRegionPaths(List<String> paths) {
+        LinkedHashMap<String, String> distinct = new LinkedHashMap<>();
+        for (String path : paths)
+            distinct.putIfAbsent(Path.of(path).getFileName().toString(), path);
+        return List.copyOf(distinct.values());
     }
 
     private static @NotNull File getDimFolder(@NotNull World.Environment environment, @NotNull File worldFolder) {

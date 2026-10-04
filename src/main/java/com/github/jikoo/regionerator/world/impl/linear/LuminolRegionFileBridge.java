@@ -10,22 +10,22 @@
  */
 package com.github.jikoo.regionerator.world.impl.linear;
 
+import ca.spottedleaf.moonrise.patches.chunk_system.io.MoonriseRegionFileIO;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.util.BitSet;
 import java.util.List;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.ChunkPos;
 import org.bukkit.World;
+import org.bukkit.craftbukkit.CraftWorld;
 import org.jetbrains.annotations.Nullable;
 
 final class LuminolRegionFileBridge {
     private final List<RegionFileAccess> accesses;
     private final IOAction beforeClear;
-
-    LuminolRegionFileBridge(List<RegionFileAccess> accesses) {
-        this(accesses, () -> {});
-    }
 
     private LuminolRegionFileBridge(List<RegionFileAccess> accesses, IOAction beforeClear) {
         this.accesses = List.copyOf(accesses);
@@ -36,16 +36,14 @@ final class LuminolRegionFileBridge {
         try {
             ClassLoader loader = world.getClass().getClassLoader();
             Class<?> regionFile = Class.forName("abomination.IRegionFile", false, loader);
-            Class<?> chunkPos = Class.forName("net.minecraft.world.level.ChunkPos", false, loader);
-            Object level = world.getClass().getMethod("getHandle").invoke(world);
+            ServerLevel level = ((CraftWorld) world).getHandle();
             List<RegionFileAccess> accesses = List.of(
-                    reflectiveAccess(level, "moonrise$getChunkDataController", regionFile, chunkPos),
-                    reflectiveAccess(level, "moonrise$getEntityChunkDataController", regionFile, chunkPos),
-                    reflectiveAccess(level, "moonrise$getPoiChunkDataController", regionFile, chunkPos));
-            Class<?> io = Class.forName(
-                    "ca.spottedleaf.moonrise.patches.chunk_system.io.MoonriseRegionFileIO", false, loader);
-            Method flush = findMethod(io, "flush", level.getClass());
-            return new LuminolRegionFileBridge(accesses, () -> invoke(flush, null, level));
+                    reflectiveAccess(level, "moonrise$getChunkDataController", regionFile),
+                    reflectiveAccess(level, "moonrise$getEntityChunkDataController", regionFile),
+                    reflectiveAccess(level, "moonrise$getPoiChunkDataController", regionFile));
+            return new LuminolRegionFileBridge(accesses, () -> {
+                MoonriseRegionFileIO.flush(level);
+            });
         } catch (ClassNotFoundException
                 | NoSuchMethodException
                 | IllegalAccessException
@@ -54,22 +52,12 @@ final class LuminolRegionFileBridge {
         }
     }
 
-    private static Method findMethod(Class<?> type, String name, Class<?> argument) throws NoSuchMethodException {
-        for (Method method : type.getMethods()) {
-            if (method.getName().equals(name)
-                    && method.getParameterCount() == 1
-                    && method.getParameterTypes()[0].isAssignableFrom(argument)) return method;
-        }
-        throw new NoSuchMethodException(type.getName() + '#' + name);
-    }
-
-    private static RegionFileAccess reflectiveAccess(
-            Object level, String controllerMethod, Class<?> regionFile, Class<?> chunkPos)
+    private static RegionFileAccess reflectiveAccess(Object level, String controllerMethod, Class<?> regionFile)
             throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
         Object controller = level.getClass().getMethod(controllerMethod).invoke(level);
         Object cache = controller.getClass().getMethod("getCache").invoke(controller);
         Method getFile = cache.getClass().getMethod("moonrise$getRegionFileIfExists", int.class, int.class);
-        Method clear = regionFile.getMethod("clear", chunkPos);
+        Method clear = regionFile.getMethod("clear", ChunkPos.class);
         Method flush = regionFile.getMethod("flush");
         Method getPath = regionFile.getMethod("getPath");
         return new RegionFileAccess() {
@@ -87,7 +75,9 @@ final class LuminolRegionFileBridge {
                     invoke(
                             clear,
                             file,
-                            chunkPos.getConstructor(int.class, int.class).newInstance(chunkX, chunkZ));
+                            ((Class<?>) ChunkPos.class)
+                                    .getConstructor(int.class, int.class)
+                                    .newInstance(chunkX, chunkZ));
                 } catch (ReflectiveOperationException e) {
                     throw new IOException(e);
                 }
