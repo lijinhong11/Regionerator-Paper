@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.github.jikoo"
-version = "3.0.4-SNAPSHOT-FORK"
+version = findProperty("version")!! as String
 
 repositories {
     mavenCentral()

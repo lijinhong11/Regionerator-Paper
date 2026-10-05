@@ -20,8 +20,11 @@ import com.github.jikoo.regionerator.world.ChunkInfo;
 import com.github.jikoo.regionerator.world.WorldInfo;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+
+import com.google.common.base.Suppliers;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.jetbrains.annotations.NotNull;
@@ -31,7 +34,7 @@ public class VisitStatusCache implements Supplier<VisitStatus> {
     private final Supplier<VisitStatus> statusSupplier;
 
     public VisitStatusCache(@NotNull Regionerator plugin, @NotNull ChunkInfo chunkInfo) {
-        this.statusSupplier = () -> {
+        this.statusSupplier = Suppliers.memoizeWithExpiration(() -> {
             // If chunk is already orphaned on disk, don't check anything.
             if (chunkInfo.isOrphaned()) {
                 return VisitStatus.ORPHANED;
@@ -133,7 +136,7 @@ public class VisitStatusCache implements Supplier<VisitStatus> {
 
             plugin.debug(DebugLevel.HIGH, () -> "Chunk " + flagData.getChunkId() + " has not been visited.");
             return VisitStatus.UNVISITED;
-        };
+        }, calcCacheDuration(plugin), TimeUnit.MINUTES);
     }
 
     /**
