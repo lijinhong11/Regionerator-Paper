@@ -31,10 +31,8 @@ import net.jpountz.lz4.LZ4Compressor;
 import net.jpountz.lz4.LZ4Factory;
 import net.jpountz.lz4.LZ4FastDecompressor;
 import net.openhft.hashing.LongHashFunction;
-import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * <b>Source is copied from LuminolMC/Luminol</b><br>
@@ -71,12 +69,6 @@ public class LinearRegionFile extends RegionInfo {
     private final @Nullable LuminolRegionFileBridge bridge;
     private int gridSize = 8;
     private int bucketSize = 4;
-
-    @ApiStatus.Internal
-    @TestOnly
-    public LinearRegionFile(WorldInfo worldInfo, Path path, int compressionLevel, int lowestRegionX, int lowestRegionZ) {
-        this(worldInfo, path, compressionLevel, lowestRegionX, lowestRegionZ, null);
-    }
 
     LinearRegionFile(
             WorldInfo worldInfo,

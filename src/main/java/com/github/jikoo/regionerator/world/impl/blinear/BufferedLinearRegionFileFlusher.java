@@ -22,7 +22,7 @@ import org.apache.commons.lang3.Validate;
 import org.slf4j.Logger;
 
 /**
- * Source is copied from LophineLabs/Lophine<br>
+ * <b>Source is copied from LophineLabs/Lophine</b><br>
  * Thanks to their effort!
  * <p>
  * Edited by lijinhong11
@@ -35,7 +35,7 @@ public class BufferedLinearRegionFileFlusher implements Runnable {
     private final Executor ioWorkerPool;
     private final long flushOfWriteTimeoutMs;
 
-    public BufferedLinearRegionFileFlusher(int nIoThreads, long checkIntervalMs, long flushOfWriteTimeoutMs) {
+    BufferedLinearRegionFileFlusher(int nIoThreads, long checkIntervalMs, long flushOfWriteTimeoutMs) {
         Validate.isTrue(nIoThreads > 0, "Number of I/O threads must > 0!");
         Validate.isTrue(checkIntervalMs > 0, "Check interval must > 0");
         Validate.isTrue(flushOfWriteTimeoutMs > 0, "Flush of write timeout must > 0");

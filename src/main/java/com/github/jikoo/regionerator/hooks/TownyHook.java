@@ -10,7 +10,7 @@
  */
 package com.github.jikoo.regionerator.hooks;
 
-import com.github.jikoo.regionerator.util.object.Coordinates;
+import com.github.jikoo.regionerator.util.planar.Coordinates;
 import com.palmergames.bukkit.towny.TownyAPI;
 import com.palmergames.bukkit.towny.object.Coord;
 import com.palmergames.bukkit.towny.object.TownBlock;

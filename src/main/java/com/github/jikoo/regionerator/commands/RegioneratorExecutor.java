@@ -13,7 +13,7 @@ package com.github.jikoo.regionerator.commands;
 import com.github.jikoo.regionerator.DeletionRunnable;
 import com.github.jikoo.regionerator.Regionerator;
 import com.github.jikoo.regionerator.hooks.Hook;
-import com.github.jikoo.regionerator.util.object.Coordinates;
+import com.github.jikoo.regionerator.util.planar.Coordinates;
 import com.github.jikoo.regionerator.util.yaml.Config;
 import com.github.jikoo.regionerator.world.ChunkInfo;
 import com.github.jikoo.regionerator.world.RegionInfo;

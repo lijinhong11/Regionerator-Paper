@@ -11,7 +11,7 @@
 package com.github.jikoo.regionerator.world;
 
 import com.github.jikoo.regionerator.Regionerator;
-import com.github.jikoo.regionerator.util.object.Coordinates;
+import com.github.jikoo.regionerator.util.planar.Coordinates;
 import java.io.IOException;
 import java.util.stream.Stream;
 import org.bukkit.World;

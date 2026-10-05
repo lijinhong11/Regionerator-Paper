@@ -10,7 +10,7 @@
  */
 package com.github.jikoo.regionerator.hooks;
 
-import com.github.jikoo.regionerator.util.object.Coordinates;
+import com.github.jikoo.regionerator.util.planar.Coordinates;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldguard.WorldGuard;

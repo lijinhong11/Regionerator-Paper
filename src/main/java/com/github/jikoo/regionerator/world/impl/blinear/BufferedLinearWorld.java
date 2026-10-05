@@ -11,6 +11,7 @@
 package com.github.jikoo.regionerator.world.impl.blinear;
 
 import com.github.jikoo.regionerator.Regionerator;
+import com.github.jikoo.regionerator.util.RChunkPos;
 import com.github.jikoo.regionerator.world.RegionInfo;
 import com.github.jikoo.regionerator.world.WorldInfo;
 import java.io.File;
@@ -24,7 +25,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-import net.minecraft.world.level.ChunkPos;
 import org.bukkit.World;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -92,9 +92,10 @@ public class BufferedLinearWorld extends WorldInfo {
             try {
                 BufferedLinearRegionFile file = new BufferedLinearRegionFile(
                         this,
-                        new ChunkPos(
-                                Math.multiplyExact(regionX, RegionInfo.CHUNKS_PER_AXIS),
-                                Math.multiplyExact(regionZ, RegionInfo.CHUNKS_PER_AXIS)),
+                        new RChunkPos(
+                                        Math.multiplyExact(regionX, RegionInfo.CHUNKS_PER_AXIS),
+                                        Math.multiplyExact(regionZ, RegionInfo.CHUNKS_PER_AXIS))
+                                .toMinecraftChunkPos(),
                         path,
                         1,
                         this.flusher);

@@ -10,7 +10,7 @@
  */
 package com.github.jikoo.regionerator.hooks;
 
-import com.github.jikoo.regionerator.util.object.Coordinates;
+import com.github.jikoo.regionerator.util.planar.Coordinates;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.jetbrains.annotations.NotNull;

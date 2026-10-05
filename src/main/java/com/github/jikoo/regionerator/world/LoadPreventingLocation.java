@@ -10,7 +10,7 @@
  */
 package com.github.jikoo.regionerator.world;
 
-import com.github.jikoo.regionerator.util.object.Coordinates;
+import com.github.jikoo.regionerator.util.planar.Coordinates;
 import java.util.Objects;
 import org.bukkit.Chunk;
 import org.bukkit.Location;

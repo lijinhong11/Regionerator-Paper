@@ -41,9 +41,7 @@ final class LuminolRegionFileBridge {
                     reflectiveAccess(level, "moonrise$getChunkDataController", regionFile),
                     reflectiveAccess(level, "moonrise$getEntityChunkDataController", regionFile),
                     reflectiveAccess(level, "moonrise$getPoiChunkDataController", regionFile));
-            return new LuminolRegionFileBridge(accesses, () -> {
-                MoonriseRegionFileIO.flush(level);
-            });
+            return new LuminolRegionFileBridge(accesses, () -> MoonriseRegionFileIO.flush(level));
         } catch (ClassNotFoundException
                 | NoSuchMethodException
                 | IllegalAccessException

@@ -10,7 +10,7 @@
  */
 package com.github.jikoo.regionerator.world.impl.anvil;
 
-import com.github.jikoo.regionerator.util.object.Coordinates;
+import com.github.jikoo.regionerator.util.planar.Coordinates;
 import com.google.common.annotations.Beta;
 import java.io.IOException;
 import java.io.InputStream;

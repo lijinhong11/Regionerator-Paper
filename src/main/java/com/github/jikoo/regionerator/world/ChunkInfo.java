@@ -79,7 +79,9 @@ public abstract class ChunkInfo {
     }
 
     /**
-     * Gets the bukkit chunk
+     * Gets the bukkit chunk, loading it if necessary.
+     *
+     * <p>Must be called on the thread owning this chunk's region.
      *
      * @return the bukkit chunk
      */

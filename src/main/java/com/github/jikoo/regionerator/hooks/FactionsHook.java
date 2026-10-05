@@ -10,7 +10,7 @@
  */
 package com.github.jikoo.regionerator.hooks;
 
-import com.github.jikoo.regionerator.util.object.ThrowableTriFunction;
+import com.github.jikoo.regionerator.util.planar.ThrowableTriFunction;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import org.bukkit.World;

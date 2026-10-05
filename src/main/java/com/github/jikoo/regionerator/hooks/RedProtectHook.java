@@ -12,7 +12,7 @@ package com.github.jikoo.regionerator.hooks;
 
 import br.net.fabiozumbi12.RedProtect.Bukkit.RedProtect;
 import br.net.fabiozumbi12.RedProtect.Bukkit.Region;
-import com.github.jikoo.regionerator.util.object.Coordinates;
+import com.github.jikoo.regionerator.util.planar.Coordinates;
 import com.github.jikoo.regionerator.world.DummyChunk;
 import org.bukkit.Location;
 import org.bukkit.World;

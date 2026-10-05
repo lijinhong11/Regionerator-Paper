@@ -11,7 +11,7 @@
 package com.github.jikoo.regionerator.commands;
 
 import com.github.jikoo.regionerator.Regionerator;
-import com.github.jikoo.regionerator.util.object.Coordinates;
+import com.github.jikoo.regionerator.util.planar.Coordinates;
 import com.github.jikoo.regionerator.util.yaml.Config;
 import java.util.Set;
 import org.bukkit.Location;

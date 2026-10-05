@@ -10,13 +10,13 @@
  */
 package com.github.jikoo.regionerator.activity;
 
+import com.github.jikoo.regionerator.util.RChunkPos;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import net.minecraft.world.level.ChunkPos;
 import org.bukkit.Chunk;
 import org.bukkit.World;
 
@@ -29,7 +29,7 @@ public class ChunkActivityTracker {
 
         ConcurrentHashMap<Long, ActivityWindow> worldActivity =
                 activityMap.computeIfAbsent(chunk.getWorld().getName(), name -> new ConcurrentHashMap<>());
-        worldActivity.compute(ChunkPos.asLong(chunk.getX(), chunk.getZ()), (key, window) -> {
+        worldActivity.compute(RChunkPos.asLong(chunk.getX(), chunk.getZ()), (key, window) -> {
             if (window == null) {
                 return new ActivityWindow(now);
             }

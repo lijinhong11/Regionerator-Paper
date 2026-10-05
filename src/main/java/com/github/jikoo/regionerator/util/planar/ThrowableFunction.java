@@ -8,7 +8,7 @@
  * You should have received a copy of the license along with this
  * work. If not, see <http://creativecommons.org/licenses/by-sa/4.0/>.
  */
-package com.github.jikoo.regionerator.util.object;
+package com.github.jikoo.regionerator.util.planar;
 
 @FunctionalInterface
 public interface ThrowableFunction<T, R, E extends Throwable> {

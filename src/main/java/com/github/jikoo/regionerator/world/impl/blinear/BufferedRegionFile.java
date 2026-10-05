@@ -19,7 +19,7 @@ import java.nio.file.Path;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.ChunkPos;
 
-public interface BufferedRegionFile extends ChunkSystemRegionFile, AutoCloseable {
+interface BufferedRegionFile extends ChunkSystemRegionFile, AutoCloseable {
     Path getPath();
 
     DataInputStream getChunkDataInputStream(ChunkPos pos) throws IOException;

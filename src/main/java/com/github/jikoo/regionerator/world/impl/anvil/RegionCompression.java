@@ -10,7 +10,7 @@
  */
 package com.github.jikoo.regionerator.world.impl.anvil;
 
-import com.github.jikoo.regionerator.util.object.ThrowableFunction;
+import com.github.jikoo.regionerator.util.planar.ThrowableFunction;
 import java.io.*;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.GZIPInputStream;

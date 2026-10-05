@@ -10,6 +10,7 @@
  */
 package com.github.jikoo.regionerator;
 
+import com.github.jikoo.regionerator.util.RChunkPos;
 import com.github.jikoo.regionerator.world.ChunkInfo;
 import com.github.jikoo.regionerator.world.RegionInfo;
 import com.github.jikoo.regionerator.world.WorldInfo;
@@ -19,18 +20,19 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Phaser;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.chunk.status.ChunkStatus;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
-import org.bukkit.craftbukkit.CraftChunk;
 import org.bukkit.plugin.IllegalPluginAccessException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -274,18 +276,40 @@ public class DeletionRunnable implements Consumer<ScheduledTask> {
         boolean isFresh = !plugin.config().isDeleteFreshChunks(world)
                 && lastVisit == plugin.config().getFlagGenerated(world);
 
-        CraftChunk craftChunk = (CraftChunk) chunkInfo.getBukkitChunk();
-        long inhabitedTime = craftChunk.getHandle(ChunkStatus.FULL).getInhabitedTime();
-        if (inhabitedTime < plugin.config().getMinInhabitedTimeInWorld(world)) {
-            plugin.debug(
-                    DebugLevel.HIGH,
-                    () -> String.format(
-                            "Chunk %s_%s_%s is marked as delete because of less inhabited time",
-                            chunkInfo.getWorld().getName(), chunkInfo.getChunkX(), chunkInfo.getChunkZ()));
-            return true;
+        int minInhabitedTime = plugin.config().getMinInhabitedTimeInWorld(world);
+        if (minInhabitedTime > 0) {
+            long inhabitedTime;
+            try {
+                inhabitedTime = getInhabitedTime(chunkInfo);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            } catch (ExecutionException | TimeoutException | RuntimeException e) {
+                if (!isCancelled() && plugin.isEnabled()) {
+                    plugin.debug(
+                            () -> String.format(
+                                    "Unable to read inhabited time for chunk %s_%s_%s; skipping deletion",
+                                    world.getName(), chunkInfo.getChunkX(), chunkInfo.getChunkZ()),
+                            e);
+                }
+                return false;
+            }
+
+            if (isCancelled()) {
+                return false;
+            }
+
+            if (inhabitedTime < minInhabitedTime) {
+                plugin.debug(
+                        DebugLevel.HIGH,
+                        () -> String.format(
+                                "Chunk %s_%s_%s is marked as delete because of less inhabited time",
+                                chunkInfo.getWorld().getName(), chunkInfo.getChunkX(), chunkInfo.getChunkZ()));
+                return true;
+            }
         }
 
-        if (lessInteractChunks.contains(ChunkPos.asLong(chunkInfo.getChunkX(), chunkInfo.getChunkZ()))) {
+        if (lessInteractChunks.contains(RChunkPos.asLong(chunkInfo.getChunkX(), chunkInfo.getChunkZ()))) {
             plugin.debug(
                     DebugLevel.HIGH,
                     () -> String.format(
@@ -344,6 +368,35 @@ public class DeletionRunnable implements Consumer<ScheduledTask> {
         }
 
         return visitStatus.ordinal() < VisitStatus.VISITED.ordinal();
+    }
+
+    /**
+     * Called only by the asynchronous deletion worker. Both chunk retrieval and reading its
+     * inhabited time must run on the owning region thread, not the global region scheduler.
+     */
+    private long getInhabitedTime(@NotNull ChunkInfo chunkInfo)
+            throws InterruptedException, ExecutionException, TimeoutException {
+        CompletableFuture<Long> result = new CompletableFuture<>();
+        ScheduledTask readTask = Bukkit.getRegionScheduler()
+                .run(plugin, chunkInfo.getWorld(), chunkInfo.getChunkX(), chunkInfo.getChunkZ(), task -> {
+                    if (result.isDone() || isCancelled() || !plugin.isEnabled()) {
+                        result.cancel(false);
+                        return;
+                    }
+
+                    try {
+                        result.complete(chunkInfo.getBukkitChunk().getInhabitedTime());
+                    } catch (RuntimeException e) {
+                        result.completeExceptionally(e);
+                    }
+                });
+        try {
+            // Shutdown or an unavailable region must not leave the deletion worker waiting forever.
+            return result.get(30, TimeUnit.SECONDS);
+        } finally {
+            result.cancel(false);
+            readTask.cancel();
+        }
     }
 
     private void writeRegion(@NotNull RegionInfo region, List<ChunkInfo> chunks) {

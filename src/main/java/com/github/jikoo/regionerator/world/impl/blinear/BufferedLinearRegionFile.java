@@ -12,6 +12,7 @@ package com.github.jikoo.regionerator.world.impl.blinear;
 
 import ca.spottedleaf.concurrentutil.util.ConcurrentUtil;
 import ca.spottedleaf.moonrise.patches.chunk_system.io.MoonriseRegionFileIO;
+import com.github.jikoo.regionerator.util.RChunkPos;
 import com.github.jikoo.regionerator.world.ChunkInfo;
 import com.github.jikoo.regionerator.world.RegionInfo;
 import com.github.jikoo.regionerator.world.WorldInfo;
@@ -52,7 +53,8 @@ import org.jspecify.annotations.NonNull;
  * Thanks to their effort!
  * <p>
  * Edited by lijinhong11
- * </p><br>
+ * </p>
+ * <br>
  * Lock hierarchy (always acquire top to bottom, never the reverse):
  * <ol>
  *     <li>{@code syncLock}         — serializes master file syncs against close</li>
@@ -165,14 +167,14 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
 
     private final BufferedLinearRegionFileFlusher flusher;
 
-    public BufferedLinearRegionFile(
+    BufferedLinearRegionFile(
             WorldInfo worldInfo,
             ChunkPos pos,
             Path masterFilePath,
             int compressionLevel,
             @NotNull BufferedLinearRegionFileFlusher flusher)
             throws IOException {
-        super(worldInfo, pos.x, pos.z);
+        super(worldInfo, RChunkPos.getMinecraftChunkPosX(pos), RChunkPos.getMinecraftChunkPosZ(pos));
         this.masterFilePath = masterFilePath;
         this.swapFilePath = Path.of(this.masterFilePath.toString() + ".swp");
 
@@ -933,7 +935,8 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
 
     @Override
     public DataInputStream getChunkDataInputStream(@NotNull ChunkPos pos) throws IOException {
-        final ByteBuffer data = this.readChunk(pos.x, pos.z);
+        final ByteBuffer data =
+                this.readChunk(RChunkPos.getMinecraftChunkPosX(pos), RChunkPos.getMinecraftChunkPosZ(pos));
 
         if (data == null) {
             return null;
@@ -944,7 +947,7 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
 
     @Override
     public boolean doesChunkExist(@NotNull ChunkPos pos) throws IOException {
-        return this.hasData(getChunkIndex(pos.x, pos.z));
+        return this.hasData(getChunkIndex(RChunkPos.getMinecraftChunkPosX(pos), RChunkPos.getMinecraftChunkPosZ(pos)));
     }
 
     @Override
@@ -954,13 +957,14 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
 
     @Override
     public void clear(@NotNull ChunkPos pos) throws IOException {
-        this.clearChunkData(getChunkIndex(pos.x, pos.z));
+        this.clearChunkData(getChunkIndex(RChunkPos.getMinecraftChunkPosX(pos), RChunkPos.getMinecraftChunkPosZ(pos)));
     }
 
     @Override
     public boolean hasChunk(@NotNull ChunkPos pos) {
         try {
-            return this.hasData(getChunkIndex(pos.x, pos.z));
+            return this.hasData(
+                    getChunkIndex(RChunkPos.getMinecraftChunkPosX(pos), RChunkPos.getMinecraftChunkPosZ(pos)));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -968,7 +972,7 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
 
     @Override
     public void write(@NotNull ChunkPos pos, ByteBuffer buf) throws IOException {
-        this.writeChunk(pos.x, pos.z, buf);
+        this.writeChunk(RChunkPos.getMinecraftChunkPosX(pos), RChunkPos.getMinecraftChunkPosZ(pos), buf);
     }
 
     // MCC 的玩意,这东西也用不上给Linear了()
@@ -1132,7 +1136,8 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
         public void close() throws IOException {
             ByteBuffer bytebuffer = ByteBuffer.wrap(this.buf, 0, this.count);
 
-            BufferedLinearRegionFile.this.writeChunk(this.pos.x, this.pos.z, bytebuffer);
+            BufferedLinearRegionFile.this.writeChunk(
+                    RChunkPos.getMinecraftChunkPosX(pos), RChunkPos.getMinecraftChunkPosZ(pos), bytebuffer);
 
             BufferedLinearRegionFile.this.flushInternal();
         }

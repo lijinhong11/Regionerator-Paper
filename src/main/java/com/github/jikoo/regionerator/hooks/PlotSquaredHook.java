@@ -10,7 +10,7 @@
  */
 package com.github.jikoo.regionerator.hooks;
 
-import com.github.jikoo.regionerator.util.object.Coordinates;
+import com.github.jikoo.regionerator.util.planar.Coordinates;
 import com.plotsquared.core.PlotSquared;
 import com.plotsquared.core.plot.PlotArea;
 import com.sk89q.worldedit.math.BlockVector3;

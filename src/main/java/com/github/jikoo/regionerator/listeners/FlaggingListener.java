@@ -12,7 +12,7 @@ package com.github.jikoo.regionerator.listeners;
 
 import com.github.jikoo.regionerator.Regionerator;
 import com.github.jikoo.regionerator.schedulers.AsyncBatch;
-import com.github.jikoo.regionerator.util.object.Coordinates;
+import com.github.jikoo.regionerator.util.planar.Coordinates;
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import java.lang.reflect.Array;
 import java.util.concurrent.TimeUnit;
