@@ -118,6 +118,7 @@ tasks.assemble {
 
 tasks.test {
     useJUnitPlatform()
+    workingDir = layout.buildDirectory.get().asFile
 }
 
 spotless {

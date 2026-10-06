@@ -25,8 +25,8 @@ public record RChunkPos(int x, int z) {
         try {
             var lookup =
                     MethodHandles.privateLookupIn(net.minecraft.world.level.ChunkPos.class, MethodHandles.lookup());
-            var x1 = lookup.findVarHandle(int.class, "x", net.minecraft.world.level.ChunkPos.class);
-            var z1 = lookup.findVarHandle(int.class, "z", net.minecraft.world.level.ChunkPos.class);
+            var x1 = lookup.findVarHandle(net.minecraft.world.level.ChunkPos.class, "x", int.class);
+            var z1 = lookup.findVarHandle(net.minecraft.world.level.ChunkPos.class, "z", int.class);
             MC_X_Z_FIELD = new ImmutablePair<>(x1, z1);
         } catch (Exception e) {
             try {

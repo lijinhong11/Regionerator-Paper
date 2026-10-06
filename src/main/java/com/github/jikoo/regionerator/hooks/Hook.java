@@ -18,7 +18,7 @@ import org.bukkit.World;
 /**
  * A framework for adapters allowing Regionerator to respect other systems.
  */
-//TODO: use ProtectorAPI to support more plugins
+// TODO: use ProtectorAPI to support more plugins
 public abstract class Hook {
 
     private final String protectionName;

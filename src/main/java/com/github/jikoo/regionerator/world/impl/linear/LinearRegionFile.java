@@ -193,7 +193,7 @@ public class LinearRegionFile extends RegionInfo {
         buffer.position(buffer.position() + 11);
 
         int dataCount = buffer.getInt();
-        long fileLength = this.regionFile.toFile().length();
+        long fileLength = buffer.limit();
         if (fileLength != HEADER_SIZE + dataCount + FOOTER_SIZE) {
             throw new IOException("Invalid file length: " + this.regionFile + " " + fileLength + " "
                     + (HEADER_SIZE + dataCount + FOOTER_SIZE));
@@ -298,85 +298,89 @@ public class LinearRegionFile extends RegionInfo {
 
         // writeStart = System.nanoTime();
         File tempFile = new File(regionFile.toString() + ".tmp");
-        FileOutputStream fileStream = new FileOutputStream(tempFile);
-        DataOutputStream dataStream = new DataOutputStream(fileStream);
+        try (FileOutputStream fileStream = new FileOutputStream(tempFile);
+                DataOutputStream dataStream = new DataOutputStream(new BufferedOutputStream(fileStream))) {
 
-        dataStream.writeLong(SUPERBLOCK);
-        dataStream.writeByte(VERSION);
-        dataStream.writeLong(timestamp);
-        dataStream.writeByte(gridSize);
+            dataStream.writeLong(SUPERBLOCK);
+            dataStream.writeByte(VERSION);
+            dataStream.writeLong(timestamp);
+            dataStream.writeByte(gridSize);
 
-        dataStream.writeInt(regionX);
-        dataStream.writeInt(regionZ);
+            dataStream.writeInt(regionX);
+            dataStream.writeInt(regionZ);
 
-        boolean[] chunkExistenceBitmap = new boolean[1024];
-        System.arraycopy(chunkExists, 0, chunkExistenceBitmap, 0, 1024);
+            boolean[] chunkExistenceBitmap = new boolean[1024];
+            System.arraycopy(chunkExists, 0, chunkExistenceBitmap, 0, 1024);
 
-        writeSerializedExistenceBitmap(dataStream, chunkExistenceBitmap);
+            writeSerializedExistenceBitmap(dataStream, chunkExistenceBitmap);
 
-        writeNBTFeatures(dataStream);
+            writeNBTFeatures(dataStream);
 
-        byte[][] buckets = new byte[gridSize * gridSize][];
-        for (int bx = 0; bx < gridSize; bx++) {
-            for (int bz = 0; bz < gridSize; bz++) {
-                if (bucketBuffers != null && bucketBuffers[bx * gridSize + bz] != null) {
-                    buckets[bx * gridSize + bz] = bucketBuffers[bx * gridSize + bz];
-                    continue;
-                }
-                ByteArrayOutputStream bucketStream = new ByteArrayOutputStream();
-                ZstdOutputStream zstdStream = new ZstdOutputStream(bucketStream, this.compressionLevel);
-                DataOutputStream bucketDataStream = new DataOutputStream(zstdStream);
+            byte[][] buckets = new byte[gridSize * gridSize][];
+            for (int bx = 0; bx < gridSize; bx++) {
+                for (int bz = 0; bz < gridSize; bz++) {
+                    if (bucketBuffers != null && bucketBuffers[bx * gridSize + bz] != null) {
+                        buckets[bx * gridSize + bz] = bucketBuffers[bx * gridSize + bz];
+                        continue;
+                    }
+                    ByteArrayOutputStream bucketStream = new ByteArrayOutputStream();
+                    ZstdOutputStream zstdStream = new ZstdOutputStream(bucketStream, this.compressionLevel);
+                    DataOutputStream bucketDataStream = new DataOutputStream(zstdStream);
 
-                boolean hasData = false;
-                for (int cx = 0; cx < 32 / gridSize; cx++) {
-                    for (int cz = 0; cz < 32 / gridSize; cz++) {
-                        int chunkIndex = (bx * 32 / gridSize + cx) + (bz * 32 / gridSize + cz) * 32;
-                        if (this.bufferUncompressedSize[chunkIndex] > 0) {
-                            hasData = true;
-                            byte[] chunkData = new byte[this.bufferUncompressedSize[chunkIndex]];
-                            this.decompressor.decompress(
-                                    this.buffer[chunkIndex], 0, chunkData, 0, this.bufferUncompressedSize[chunkIndex]);
-                            bucketDataStream.writeInt(chunkData.length + 8);
-                            bucketDataStream.writeLong(this.chunkTimestamps[chunkIndex]);
-                            bucketDataStream.write(chunkData);
-                        } else {
-                            bucketDataStream.writeInt(0);
-                            bucketDataStream.writeLong(this.chunkTimestamps[chunkIndex]);
+                    boolean hasData = false;
+                    for (int cx = 0; cx < 32 / gridSize; cx++) {
+                        for (int cz = 0; cz < 32 / gridSize; cz++) {
+                            int chunkIndex = (bx * 32 / gridSize + cx) + (bz * 32 / gridSize + cz) * 32;
+                            if (this.bufferUncompressedSize[chunkIndex] > 0) {
+                                hasData = true;
+                                byte[] chunkData = new byte[this.bufferUncompressedSize[chunkIndex]];
+                                this.decompressor.decompress(
+                                        this.buffer[chunkIndex],
+                                        0,
+                                        chunkData,
+                                        0,
+                                        this.bufferUncompressedSize[chunkIndex]);
+                                bucketDataStream.writeInt(chunkData.length + 8);
+                                bucketDataStream.writeLong(this.chunkTimestamps[chunkIndex]);
+                                bucketDataStream.write(chunkData);
+                            } else {
+                                bucketDataStream.writeInt(0);
+                                bucketDataStream.writeLong(this.chunkTimestamps[chunkIndex]);
+                            }
                         }
                     }
+                    bucketDataStream.close();
+
+                    if (hasData) {
+                        buckets[bx * gridSize + bz] = bucketStream.toByteArray();
+                    }
                 }
-                bucketDataStream.close();
+            }
 
-                if (hasData) {
-                    buckets[bx * gridSize + bz] = bucketStream.toByteArray();
+            for (int i = 0; i < gridSize * gridSize; i++) {
+                dataStream.writeInt(buckets[i] != null ? buckets[i].length : 0);
+                dataStream.writeByte(this.compressionLevel);
+                long rawHash = 0;
+                if (buckets[i] != null) {
+                    rawHash = LongHashFunction.xx().hashBytes(buckets[i]);
+                }
+                dataStream.writeLong(rawHash);
+            }
+
+            for (int i = 0; i < gridSize * gridSize; i++) {
+                if (buckets[i] != null) {
+                    dataStream.write(buckets[i]);
                 }
             }
+
+            dataStream.writeLong(SUPERBLOCK);
+
+            dataStream.flush();
+            // One durability barrier after draining the buffer; sync() and force(true)
+            // on the same descriptor would flush the same data and metadata twice.
+            fileStream.getChannel().force(true);
         }
 
-        for (int i = 0; i < gridSize * gridSize; i++) {
-            dataStream.writeInt(buckets[i] != null ? buckets[i].length : 0);
-            dataStream.writeByte(this.compressionLevel);
-            long rawHash = 0;
-            if (buckets[i] != null) {
-                rawHash = LongHashFunction.xx().hashBytes(buckets[i]);
-            }
-            dataStream.writeLong(rawHash);
-        }
-
-        for (int i = 0; i < gridSize * gridSize; i++) {
-            if (buckets[i] != null) {
-                dataStream.write(buckets[i]);
-            }
-        }
-
-        dataStream.writeLong(SUPERBLOCK);
-
-        dataStream.flush();
-        fileStream.getFD().sync();
-        fileStream.getChannel().force(true); // Ensure atomicity on Btrfs
-        dataStream.close();
-
-        fileStream.close();
         Files.move(tempFile.toPath(), this.regionFile, StandardCopyOption.REPLACE_EXISTING);
     }
 

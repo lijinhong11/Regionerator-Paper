@@ -22,7 +22,9 @@ import java.io.*;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
@@ -684,6 +686,7 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
                 // recalculate the offset and length
                 final Sector newRecalculated = new Sector(sector.index, offsetPointer, sector.length);
                 newRecalculated.hasData = true;
+                newRecalculated.timestamp = sector.timestamp;
 
                 offsetPointer += sector.length;
                 newSectorsToBeReplaced[sector.index] = newRecalculated; // update sector infos
@@ -839,12 +842,7 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
                 return 0L;
             }
 
-            final ByteBuffer metadata = acquireScratch(Integer.BYTES + Long.BYTES);
-            metadata.limit(Integer.BYTES + Long.BYTES);
-            readFullyAt(this.swapFileChannel, metadata, sector.offset);
-            metadata.flip();
-            metadata.getInt();
-            return metadata.getLong();
+            return sector.timestamp;
         } finally {
             this.regionObjectLock.readLock().unlock();
         }
@@ -1076,6 +1074,9 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
         private final int index;
         private long offset;
         private long length;
+        // Guarded by regionObjectLock, just like the extent. Captured while storing
+        // the metadata so timestamp queries never need to read the swap file.
+        private long timestamp;
         private boolean hasData = false;
 
         private Sector(int index, long offset, long length) {
@@ -1088,6 +1089,7 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
             final long oldLength = this.length;
             final long oldLive = this.hasData ? oldLength : 0L;
             final long newDataLength = newData.remaining();
+            final long newTimestamp = newData.getLong(newData.position() + Integer.BYTES);
 
             this.hasData = true;
             this.length = newDataLength;
@@ -1107,6 +1109,7 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
             // single mutator under the region write lock; keeps the garbage estimate
             // in flushInternal() lock-free and scan-free
             BufferedLinearRegionFile.this.liveBytes += newDataLength - oldLive;
+            this.timestamp = newTimestamp;
         }
 
         public void clear() {
@@ -1190,14 +1193,15 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
                     return;
                 }
 
-                if (!Files.exists(mainFile)) {
+                final FileChannel channel;
+                try {
+                    channel = FileChannel.open(mainFile, StandardOpenOption.READ, StandardOpenOption.WRITE);
+                } catch (NoSuchFileException e) {
                     return;
                 }
 
                 this.fileExists = true;
 
-                final FileChannel channel =
-                        FileChannel.open(mainFile, StandardOpenOption.READ, StandardOpenOption.WRITE);
                 boolean success = false;
                 try {
                     final long fileSize = channel.size();
@@ -1324,9 +1328,7 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
                         StandardOpenOption.TRUNCATE_EXISTING)) {
                     this.writeV3Header(outChannel);
 
-                    // position table placeholder (all zeros, filled in at the end)
-                    writeFullyAt(outChannel, ByteBuffer.allocate(V3_POS_TABLE_SIZE), V3_POS_TABLE_OFFSET);
-
+                    // Leave room for the table, which is written once after all records.
                     long dataOffset = V3_DATA_AREA_OFFSET;
 
                     for (int bucketIndex = 0; bucketIndex < BUCKET_COUNT; bucketIndex++) {
@@ -1632,11 +1634,13 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
 
         // opens the master file for reading if it exists and is a valid V3 bucketed file, else null
         private @Nullable FileChannel openV3MasterFile(@NotNull Path mainFile) throws IOException {
-            if (!Files.exists(mainFile)) {
+            final FileChannel channel;
+            try {
+                channel = FileChannel.open(mainFile, StandardOpenOption.READ);
+            } catch (NoSuchFileException e) {
                 return null;
             }
 
-            final FileChannel channel = FileChannel.open(mainFile, StandardOpenOption.READ);
             try {
                 if (channel.size() >= V3_DATA_AREA_OFFSET) {
                     final ByteBuffer header = ByteBuffer.allocate(V3_HEADER_SIZE);
@@ -1720,12 +1724,9 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
 
                 if (this.appendChannel != null) {
                     // WAL mode: reuse the always-open channel and the cached position table
-                    decompressed = this.readBucketData(this.appendChannel, this.positionTable[bucketIndex]);
+                    decompressed = this.readBucketData(
+                            this.appendChannel, this.positionTable[bucketIndex], this.recordSizes[bucketIndex]);
                 } else {
-                    if (!Files.exists(file)) {
-                        return;
-                    }
-
                     try (FileChannel channel = FileChannel.open(file, StandardOpenOption.READ)) {
                         if (channel.size() < V3_DATA_AREA_OFFSET) {
                             return;
@@ -1734,6 +1735,8 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
                         this.checkV3Header(channel);
 
                         decompressed = this.readBucketData(channel, this.parseOffsetTable(channel)[bucketIndex]);
+                    } catch (NoSuchFileException e) {
+                        return;
                     }
                 }
 
@@ -1760,6 +1763,35 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
         }
 
         // reads and decompresses one bucket record; null when the table entry is empty
+        private @Nullable ByteBuffer readBucketData(@NotNull FileChannel channel, long recordOffset, long recordSize)
+                throws IOException {
+            if (recordOffset == 0) {
+                return null;
+            }
+
+            // WAL mode already knows the record size. Read header and payload together
+            // instead of issuing a separate pread just to discover the payload length.
+            final ByteBuffer record = ByteBuffer.allocate(Math.toIntExact(recordSize));
+            readFullyAt(channel, record, recordOffset);
+            record.flip();
+            final int originalLen = record.getInt();
+            final int compressedLen = record.getInt();
+            if (originalLen < 0 || compressedLen != record.remaining()) {
+                throw new IOException("Invalid bucket record lengths at offset " + recordOffset);
+            }
+
+            final byte[] decompressed = new byte[originalLen];
+            final long decoded = Zstd.decompressByteArray(
+                    decompressed, 0, originalLen, record.array(), V3_RECORD_HEADER_SIZE, compressedLen);
+            if (Zstd.isError(decoded)) {
+                throw new IOException("Failed to decompress bucket: " + Zstd.getErrorName(decoded));
+            }
+            if (decoded != originalLen) {
+                throw new IOException("Invalid decompressed bucket length: " + decoded + ", expected " + originalLen);
+            }
+            return ByteBuffer.wrap(decompressed);
+        }
+
         private @Nullable ByteBuffer readBucketData(@NotNull FileChannel channel, long recordOffset)
                 throws IOException {
             if (recordOffset == 0) {
@@ -1986,15 +2018,15 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
 
         // won't and need not hold any region locks as we are calling this in a safe point (initially newed)
         public void tryParseMainFileOld(@NotNull Path mainFilePath) throws IOException {
-            final File file = mainFilePath.toFile();
-
-            if (!file.exists() || !file.canRead()) {
+            final InputStream fileStream;
+            try {
+                fileStream = Files.newInputStream(mainFilePath);
+            } catch (NoSuchFileException | AccessDeniedException e) {
                 return;
             }
 
             // those streams will be closed in the parse logic, or we will close it manually
-            final FileInputStream fileStream = new FileInputStream(file);
-            final DataInputStream rawDataStream = new DataInputStream(fileStream);
+            final DataInputStream rawDataStream = new DataInputStream(new BufferedInputStream(fileStream));
 
             boolean oldParsed = false;
             final long superBlock;

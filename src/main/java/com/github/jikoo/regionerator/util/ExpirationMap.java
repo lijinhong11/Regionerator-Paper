@@ -20,7 +20,6 @@ import org.jetbrains.annotations.NotNull;
  * Wrapper for mapping keys to timestamps for expiration.
  */
 public class ExpirationMap<V> {
-
     private final ConcurrentSkipListMap<Long, Collection<V>> multiMap = new ConcurrentSkipListMap<>();
     private final ConcurrentHashMap<V, Long> inverse = new ConcurrentHashMap<>();
     private final long durationMillis;

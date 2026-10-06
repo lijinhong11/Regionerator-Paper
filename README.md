@@ -8,7 +8,11 @@ A Bukkit plugin for gradually deleting unused area, allowing you to free up disk
 1. Linear & BLinear format support
 2. Folia support
 3. Can configure interaction times and inhabitedtime checks to the region  
-   (If you don't know what inhabited time is, see: https://minecraft.wiki/w/Chunk_format)
+   (If you don't know what inhabited time is, see: <https://minecraft.wiki/w/Chunk_format>)
+
+## Download
+- 简体中文链接：<https://www.minebbs.com/resources/regionerator-paper.17578/>
+- [GitHub Actions](https://github.com/lijinhong11/Regionerator-Paper/actions)
 
 ## Building
 

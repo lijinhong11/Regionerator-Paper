@@ -18,7 +18,7 @@ jobs:
             25
       - uses: gradle/actions/setup-gradle@v4
       - name: Build and check
-        run: bash ./gradlew --no-daemon build
+        run: bash ./gradlew --no-daemon spotlessApply build
       - uses: actions/upload-artifact@v4
         with:
           name: Regionerator
