@@ -58,7 +58,8 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:6.1.2"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-
+    testRuntimeOnly("com.github.luben:zstd-jni:1.5.7-7")
+    testRuntimeOnly("net.openhft:zero-allocation-hashing:2026.0")
     testCompileOnly("com.github.luben:zstd-jni:1.5.7-7")
 }
 

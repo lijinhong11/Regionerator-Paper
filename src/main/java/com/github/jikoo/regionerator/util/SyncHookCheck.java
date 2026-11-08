@@ -24,7 +24,7 @@ import java.util.function.Function;
  * UNVISITED means all hooks completed without protection, not that deletion is allowed.
  * Every incomplete or failed check returns UNKNOWN so the caller skips deletion.
  */
-//TODO: support ProtectorAPI in the future
+// TODO: support ProtectorAPI in the future
 final class SyncHookCheck {
     private SyncHookCheck() {}
 
