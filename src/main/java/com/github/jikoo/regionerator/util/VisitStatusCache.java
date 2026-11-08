@@ -18,127 +18,146 @@ import com.github.jikoo.regionerator.hooks.Hook;
 import com.github.jikoo.regionerator.util.yaml.Config;
 import com.github.jikoo.regionerator.world.ChunkInfo;
 import com.github.jikoo.regionerator.world.WorldInfo;
-import com.google.common.base.Suppliers;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.jetbrains.annotations.NotNull;
 
 public class VisitStatusCache implements Supplier<VisitStatus> {
-    private final Supplier<@NotNull VisitStatus> statusSupplier;
+    private final Supplier<@NotNull VisitStatus> calculation;
+    private final long cacheDurationNanos;
+    private final AtomicBoolean calculating = new AtomicBoolean();
+    private volatile CacheEntry cached;
 
     public VisitStatusCache(@NotNull Regionerator plugin, @NotNull ChunkInfo chunkInfo) {
-        this.statusSupplier = Suppliers.memoizeWithExpiration(
-                () -> {
-                    // If chunk is already orphaned on disk, don't check anything.
-                    if (chunkInfo.isOrphaned()) {
-                        return VisitStatus.ORPHANED;
-                    }
+        this(() -> calculateVisitStatus(plugin, chunkInfo), calcCacheDuration(plugin));
+    }
 
-                    long now = System.currentTimeMillis();
-                    final World bukkitWorld = chunkInfo.getWorld();
-                    ChunkFlagger.FlagData flagData = plugin.getFlagger()
-                            .getChunkFlag(bukkitWorld, chunkInfo.getChunkX(), chunkInfo.getChunkZ())
-                            .join();
-                    long lastVisit = flagData.getLastVisit();
-                    boolean isFresh = !plugin.config().isDeleteFreshChunks(bukkitWorld)
-                            && lastVisit == plugin.config().getFlagGenerated(bukkitWorld);
+    VisitStatusCache(Supplier<VisitStatus> calculation, int cacheDurationMinutes) {
+        this.calculation = calculation;
+        this.cacheDurationNanos = TimeUnit.MINUTES.toNanos(cacheDurationMinutes);
+    }
 
-                    // If chunk is visited, don't waste time processing hooks.
-                    if (!isFresh && now <= lastVisit) {
-                        plugin.debug(
-                                DebugLevel.HIGH,
-                                () -> String.format("Chunk %s is visited until %s", flagData.getChunkId(), lastVisit));
+    private record CacheEntry(VisitStatus status, long calculatedAtNanos) {
+        private boolean isFresh(long nowNanos, long cacheDurationNanos) {
+            return nowNanos - calculatedAtNanos < cacheDurationNanos;
+        }
+    }
 
-                        // Handle visit status magic values.
-                        if (lastVisit == Config.FLAG_ETERNAL) {
-                            return VisitStatus.PERMANENTLY_FLAGGED;
-                        } else if (lastVisit == Config.FLAG_OH_NO) {
-                            return VisitStatus.UNKNOWN;
-                        }
+    private static VisitStatus calculateVisitStatus(Regionerator plugin, ChunkInfo chunkInfo) {
+        // If chunk is already orphaned on disk, don't check anything.
+        if (chunkInfo.isOrphaned()) {
+            return VisitStatus.ORPHANED;
+        }
 
-                        return VisitStatus.VISITED;
-                    }
+        long now = System.currentTimeMillis();
+        final World bukkitWorld = chunkInfo.getWorld();
+        ChunkFlagger.FlagData flagData = plugin.getFlagger()
+                .getChunkFlag(bukkitWorld, chunkInfo.getChunkX(), chunkInfo.getChunkZ())
+                .join();
+        long lastVisit = flagData.getLastVisit();
+        boolean isFresh = !plugin.config().isDeleteFreshChunks(bukkitWorld)
+                && lastVisit == plugin.config().getFlagGenerated(bukkitWorld);
 
-                    // If chunk is recently modified, prioritize that overprotections for the sake of speed/calculation
-                    // load.
-                    if (!isFresh && now - plugin.config().getFlagDuration(bukkitWorld) <= chunkInfo.getLastModified()) {
-                        plugin.debug(
-                                DebugLevel.HIGH,
-                                () -> String.format("Chunk %s is modified until %s", flagData.getChunkId(), lastVisit));
-                        return VisitStatus.VISITED;
-                    }
+        // If chunk is visited, don't waste time processing hooks.
+        if (!isFresh && now <= lastVisit) {
+            plugin.debug(
+                    DebugLevel.HIGH,
+                    () -> String.format("Chunk %s is visited until %s", flagData.getChunkId(), lastVisit));
 
-                    Collection<Hook> syncHooks = Bukkit.isPrimaryThread() ? null : new ArrayList<>();
-                    WorldInfo world = chunkInfo.getRegionInfo().getWorldInfo();
-                    int chunkX = chunkInfo.getChunkX();
-                    int chunkZ = chunkInfo.getChunkZ();
+            // Handle visit status magic values.
+            if (lastVisit == Config.FLAG_ETERNAL) {
+                return VisitStatus.PERMANENTLY_FLAGGED;
+            } else if (lastVisit == Config.FLAG_OH_NO) {
+                return VisitStatus.UNKNOWN;
+            }
 
-                    // Check available hooks.
-                    for (Hook hook : plugin.getProtectionHooks()) {
-                        // If hook must be queried on the main thread, add to the sync hook list.
-                        if (syncHooks != null && !hook.isAsyncCapable()) {
-                            syncHooks.add(hook);
-                            continue;
-                        }
+            return VisitStatus.VISITED;
+        }
 
-                        // Otherwise query the hook immediately.
-                        if (hook.isChunkProtected(world.getWorld(), chunkX, chunkZ)) {
-                            plugin.debug(
-                                    DebugLevel.HIGH,
-                                    () -> String.format(
-                                            "Chunk %s contains protections by %s",
-                                            flagData.getChunkId(), hook.getProtectionName()));
-                            return VisitStatus.PROTECTED;
-                        }
-                    }
+        // If chunk is recently modified, prioritize that overprotections for the sake of speed/calculation
+        // load.
+        if (!isFresh && now - plugin.config().getFlagDuration(bukkitWorld) <= chunkInfo.getLastModified()) {
+            plugin.debug(
+                    DebugLevel.HIGH,
+                    () -> String.format("Chunk %s is modified until %s", flagData.getChunkId(), lastVisit));
+            return VisitStatus.VISITED;
+        }
 
-                    // If non-async-capable hooks are enabled, attempt to return to the main thread to query.
-                    if (syncHooks != null && !syncHooks.isEmpty()) {
+        Collection<Hook> syncHooks = Bukkit.isPrimaryThread() ? null : new ArrayList<>();
+        WorldInfo world = chunkInfo.getRegionInfo().getWorldInfo();
+        int chunkX = chunkInfo.getChunkX();
+        int chunkZ = chunkInfo.getChunkZ();
 
-                        // Fall through to unknown status if we cannot query hooks.
-                        if (!plugin.isEnabled()) {
-                            return VisitStatus.UNKNOWN;
-                        }
+        // Check available hooks.
+        for (Hook hook : plugin.getProtectionHooks()) {
+            // If hook must be queried on the main thread, add to the sync hook list.
+            if (syncHooks != null && !hook.isAsyncCapable()) {
+                syncHooks.add(hook);
+                continue;
+            }
 
-                        // Query remaining hooks on main thread.
-                        AtomicReference<VisitStatus> visitStatus = new AtomicReference<>();
-                        Bukkit.getGlobalRegionScheduler().run(plugin, t -> {
-                            for (Hook hook : syncHooks) {
-                                if (hook.isChunkProtected(world.getWorld(), chunkX, chunkZ)) {
-                                    plugin.debug(
-                                            DebugLevel.HIGH,
-                                            () -> String.format(
-                                                    "Chunk %s contains protections by %s",
-                                                    flagData.getChunkId(), hook.getProtectionName()));
-                                    visitStatus.set(VisitStatus.PROTECTED);
-                                }
+            // Otherwise query the hook immediately.
+            if (hook.isChunkProtected(world.getWorld(), chunkX, chunkZ)) {
+                plugin.debug(
+                        DebugLevel.HIGH,
+                        () -> String.format(
+                                "Chunk %s contains protections by %s",
+                                flagData.getChunkId(), hook.getProtectionName()));
+                return VisitStatus.PROTECTED;
+            }
+        }
+
+        // If non-async-capable hooks are enabled, attempt to return to the main thread to query.
+        if (syncHooks != null && !syncHooks.isEmpty()) {
+
+            // Fall through to unknown status if we cannot query hooks.
+            if (!plugin.isEnabled()) {
+                return VisitStatus.UNKNOWN;
+            }
+
+            // Only the background caller waits. The scheduled callback never waits on it.
+            VisitStatus hookStatus = SyncHookCheck.query(
+                    plugin::isEnabled,
+                    () -> {
+                        for (Hook hook : syncHooks) {
+                            if (hook.isChunkProtected(world.getWorld(), chunkX, chunkZ)) {
+                                plugin.debug(
+                                        DebugLevel.HIGH,
+                                        () -> String.format(
+                                                "Chunk %s contains protections by %s",
+                                                flagData.getChunkId(), hook.getProtectionName()));
+                                return true;
                             }
-                            visitStatus.set(VisitStatus.UNKNOWN);
-                        });
-                        if (visitStatus.get() == VisitStatus.PROTECTED) {
-                            return VisitStatus.PROTECTED;
                         }
-                    }
+                        return false;
+                    },
+                    callback -> Bukkit.getGlobalRegionScheduler().run(plugin, task -> callback.run())::cancel,
+                    failure -> plugin.debug(
+                            () -> "Unable to check protection hooks for chunk " + flagData.getChunkId()
+                                    + "; skipping deletion",
+                            failure),
+                    30,
+                    TimeUnit.SECONDS);
+            if (hookStatus != VisitStatus.UNVISITED) {
+                return hookStatus;
+            }
+        }
 
-                    // If chunk is fresh and nothing else overwrote status, fall through to generated status.
-                    if (isFresh) {
-                        plugin.debug(
-                                DebugLevel.HIGH,
-                                () -> "Chunk " + flagData.getChunkId()
-                                        + " has not been visited since it was generated.");
-                        return VisitStatus.GENERATED;
-                    }
+        // If chunk is fresh and nothing else overwrote status, fall through to generated status.
+        if (isFresh) {
+            plugin.debug(
+                    DebugLevel.HIGH,
+                    () -> "Chunk " + flagData.getChunkId() + " has not been visited since it was generated.");
+            return VisitStatus.GENERATED;
+        }
 
-                    plugin.debug(DebugLevel.HIGH, () -> "Chunk " + flagData.getChunkId() + " has not been visited.");
-                    return VisitStatus.UNVISITED;
-                },
-                calcCacheDuration(plugin),
-                TimeUnit.MINUTES);
+        plugin.debug(DebugLevel.HIGH, () -> "Chunk " + flagData.getChunkId() + " has not been visited.");
+        return VisitStatus.UNVISITED;
     }
 
     /**
@@ -154,6 +173,32 @@ public class VisitStatusCache implements Supplier<VisitStatus> {
 
     @Override
     public @NotNull VisitStatus get() {
-        return statusSupplier.get();
+        CacheEntry current = cached;
+        long now = System.nanoTime();
+        if (current != null && current.isFresh(now, cacheDurationNanos)) {
+            return current.status;
+        }
+
+        // A server-thread caller must not wait for a background calculation that is itself
+        // awaiting a scheduled hook check. Reentrant hook queries must also fail closed.
+        if (!calculating.compareAndSet(false, true)) {
+            return VisitStatus.UNKNOWN;
+        }
+        try {
+            current = cached;
+            now = System.nanoTime();
+            if (current != null && current.isFresh(now, cacheDurationNanos)) {
+                return current.status;
+            }
+
+            VisitStatus status = calculation.get();
+            // An incomplete check must be retried instead of being cached for the full TTL.
+            if (status != VisitStatus.UNKNOWN) {
+                cached = new CacheEntry(status, System.nanoTime());
+            }
+            return status;
+        } finally {
+            calculating.set(false);
+        }
     }
 }

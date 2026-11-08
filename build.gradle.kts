@@ -58,6 +58,8 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:6.1.2"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+    testCompileOnly("com.github.luben:zstd-jni:1.5.7-7")
 }
 
 configurations.configureEach {
