@@ -267,7 +267,7 @@ public class DeletionRunnable implements Consumer<ScheduledTask> {
             return false;
         }
 
-        //Might be unloaded by any plugin like PlugManX
+        // Might be unloaded by any plugin like PlugManX
         if (!plugin.isEnabled()) {
             return false;
         }
@@ -277,7 +277,7 @@ public class DeletionRunnable implements Consumer<ScheduledTask> {
             return true;
         }
 
-        //Trial chambers skipping start
+        // Trial chambers skipping start
         // Reading saved structure data is a heavy check even if a later visit check is cheap.
         if (heavyChecks.incrementAndGet() >= plugin.config().getDeletionChunkCount()) {
             recover();
@@ -306,7 +306,7 @@ public class DeletionRunnable implements Consumer<ScheduledTask> {
             }
             return false;
         }
-        //Trial chambers skipping end
+        // Trial chambers skipping end
 
         long now = System.currentTimeMillis();
         long lastVisit = chunkInfo.getLastVisit();

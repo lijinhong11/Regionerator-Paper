@@ -167,7 +167,7 @@ public class Regionerator extends JavaPlugin {
         if (flagger != null) {
             flagger.cancel();
         }
-        //TODO: hook to ProtectorAPI
+        // TODO: hook to ProtectorAPI
 
         // Remove only hooks added by Regionerator to not break other plugins' hooks on reload.
         protectionHooks.removeIf(
