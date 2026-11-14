@@ -1,6 +1,6 @@
 # Linear 与 Blinear 的区别
 
-[English](Linear-vs-Blinear.md)
+[English](Linear-vs-BLinear.md)
 
 **Blinear（Buffered Linear）是 Linear 的重新实现。** 它沿着 Linear 区域存储的思路，重新设计了数据缓冲、按需读取、并发访问和文件同步机制。本项目分别通过 `LinearRegionFile` 和 `BufferedLinearRegionFile` 支持这两种实现。
 

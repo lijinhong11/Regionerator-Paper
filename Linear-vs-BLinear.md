@@ -1,6 +1,6 @@
 # Linear vs. Blinear
 
-[简体中文](Linear-vs-Blinear.zh-CN.md)
+[简体中文](Linear-vs-BLinear_CN.md)
 
 **Blinear (Buffered Linear) is a reimplementation of Linear.** It builds on Linear's approach to region storage while redesigning data buffering, on-demand reads, concurrent access, and file synchronization. This project supports the two implementations through `LinearRegionFile` and `BufferedLinearRegionFile`, respectively.
 
