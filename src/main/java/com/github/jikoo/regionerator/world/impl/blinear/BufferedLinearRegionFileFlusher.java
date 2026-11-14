@@ -12,17 +12,20 @@ package com.github.jikoo.regionerator.world.impl.blinear;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.mojang.logging.LogUtils;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArraySet;
 import java.io.IOException;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.*;
 import org.apache.commons.lang3.Validate;
 import org.slf4j.Logger;
 
+/*
+ * Upstream branch: ver/26.3<br>
+ * Upstream commit: 6e7e3db32bb6c1ad686b5dc14e62e8e3ad017662<br>
+ */
+
 /**
- * <b>Source is copied from LophineLabs/Lophine</b><br>
+ * <b>Source is adapted from LophineLabs/Lophine</b><br>
  * Thanks to their effort!
  * <p>
  * Edited by lijinhong11
@@ -57,27 +60,69 @@ public class BufferedLinearRegionFileFlusher implements Runnable {
     public void shutdown() {
         this.flusherChecker.cancel(false);
 
-        final BufferedLinearRegionFile[] files;
-        synchronized (this) {
-            files = this.inManagement.toArray(new BufferedLinearRegionFile[0]);
-        }
-        for (BufferedLinearRegionFile file : files) {
-            try {
-                file.close();
-            } catch (IOException e) {
-                logger.error("Failed to close buffered linear region file", e);
-            }
-        }
+        this.forceFlushAll();
 
         ((ExecutorService) this.ioWorkerPool).shutdown();
+        boolean interrupted = false;
         for (; ; ) {
             try {
                 if (((ExecutorService) this.ioWorkerPool).awaitTermination(100, TimeUnit.MILLISECONDS)) {
                     break;
                 }
             } catch (InterruptedException e) {
+                interrupted = true;
+            }
+        }
+
+        // Regionerator owns these handles, unlike the server's region file cache.
+        final BufferedLinearRegionFile[] files;
+        synchronized (this) {
+            files = this.inManagement.toArray(new BufferedLinearRegionFile[0]);
+        }
+        try {
+            for (BufferedLinearRegionFile file : files) {
+                try {
+                    file.close();
+                } catch (IOException e) {
+                    logger.error("Failed to close buffered linear region file", e);
+                }
+            }
+        } finally {
+            if (interrupted) {
                 Thread.currentThread().interrupt();
             }
+        }
+    }
+
+    public void forceFlushAll() {
+        final BufferedLinearRegionFile[] copied;
+        synchronized (this) {
+            copied = this.inManagement.toArray(new BufferedLinearRegionFile[0]);
+        }
+
+        for (BufferedLinearRegionFile file : copied) {
+            if (!file.readLock(false)) {
+                continue;
+            }
+
+            boolean closed;
+            try {
+                closed = file.isClosedRaw();
+            } finally {
+                file.releaseReadLock();
+            }
+
+            if (closed || !file.shouldSync()) {
+                continue;
+            }
+
+            this.ioWorkerPool.execute(() -> {
+                try {
+                    file.syncIfNeeded();
+                } catch (IOException e) {
+                    logger.error("Failed to sync master file: ", e);
+                }
+            });
         }
     }
 
@@ -90,10 +135,9 @@ public class BufferedLinearRegionFileFlusher implements Runnable {
             copied = this.inManagement.toArray(new BufferedLinearRegionFile[0]);
         }
 
-        final List<BufferedLinearRegionFile> toRemove = new ObjectArrayList<>();
         for (BufferedLinearRegionFile file : copied) {
             // try acquiring the read lock
-            if (!file.softReadLock()) {
+            if (!file.readLock(true)) {
                 // if the read lock is unacquirable, it might mean there is another operations is processing(might be a
                 // writing operation)
                 continue;
@@ -109,8 +153,7 @@ public class BufferedLinearRegionFileFlusher implements Runnable {
             }
 
             if (closed) {
-                // add to pending remove list so that we could clean the closed file correctly
-                toRemove.add(file);
+                // Closed files unregister themselves in markClosed().
                 continue;
             }
 
@@ -136,13 +179,6 @@ public class BufferedLinearRegionFileFlusher implements Runnable {
                         logger.error("Failed to sync master file: ", e);
                     }
                 });
-            }
-        }
-
-        synchronized (this) {
-            // clean closed files
-            for (BufferedLinearRegionFile file : toRemove) {
-                this.inManagement.remove(file);
             }
         }
     }

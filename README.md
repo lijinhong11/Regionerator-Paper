@@ -9,6 +9,7 @@ A Bukkit plugin for gradually deleting unused area, allowing you to free up disk
 2. Folia support
 3. Can configure interaction times and inhabitedtime checks to the region  
    (If you don't know what inhabited time is, see: <https://minecraft.wiki/w/Chunk_format>)
+4. Automatically preserves chunks containing trial chamber structure starts or references, even when activity-based deletion criteria are met.
 
 ## Download
 - 简体中文链接：<https://www.minebbs.com/resources/regionerator-paper.17578/>

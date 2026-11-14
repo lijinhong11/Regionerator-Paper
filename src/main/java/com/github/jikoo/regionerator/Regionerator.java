@@ -68,7 +68,7 @@ public class Regionerator extends JavaPlugin {
             if (regionImpl == RegionImplementation.NONE) {
                 getLogger()
                         .severe(
-                                "Region implementation is not set, plugin will shutdown! Available options: LINEAR, BLINEAR, ANVIL");
+                                "Region implementation is NONE, plugin will shutdown! Available options: LINEAR, BLINEAR, ANVIL");
                 getServer().getPluginManager().disablePlugin(this);
                 return;
             } else {
@@ -167,6 +167,8 @@ public class Regionerator extends JavaPlugin {
         if (flagger != null) {
             flagger.cancel();
         }
+        //TODO: hook to ProtectorAPI
+
         // Remove only hooks added by Regionerator to not break other plugins' hooks on reload.
         protectionHooks.removeIf(
                 hook -> hook.getClass().getPackage().getName().equals("com.github.jikoo.regionerator.hooks"));

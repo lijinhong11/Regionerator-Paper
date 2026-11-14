@@ -11,6 +11,7 @@
 package com.github.jikoo.regionerator;
 
 import com.github.jikoo.regionerator.util.RChunkPos;
+import com.github.jikoo.regionerator.util.TrialChambersProtection;
 import com.github.jikoo.regionerator.world.ChunkInfo;
 import com.github.jikoo.regionerator.world.RegionInfo;
 import com.github.jikoo.regionerator.world.WorldInfo;
@@ -266,10 +267,46 @@ public class DeletionRunnable implements Consumer<ScheduledTask> {
             return false;
         }
 
+        //Might be unloaded by any plugin like PlugManX
+        if (!plugin.isEnabled()) {
+            return false;
+        }
+
         if (chunkInfo.isOrphaned()) {
             // Chunk already deleted - counted in aggregate
             return true;
         }
+
+        //Trial chambers skipping start
+        // Reading saved structure data is a heavy check even if a later visit check is cheap.
+        if (heavyChecks.incrementAndGet() >= plugin.config().getDeletionChunkCount()) {
+            recover();
+        }
+
+        try {
+            // This protection takes precedence over every deletion criterion, including low activity.
+            if (TrialChambersProtection.isProtected(world, chunkInfo.getChunkX(), chunkInfo.getChunkZ())) {
+                plugin.debug(
+                        DebugLevel.HIGH,
+                        () -> String.format(
+                                "Skipping chunk %s_%s_%s - contains trial chambers",
+                                world.getName(), chunkInfo.getChunkX(), chunkInfo.getChunkZ()));
+                return false;
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        } catch (IOException | ExecutionException | TimeoutException | RuntimeException e) {
+            if (!isCancelled() && plugin.isEnabled()) {
+                plugin.debug(
+                        () -> String.format(
+                                "Unable to check trial chambers for chunk %s_%s_%s; skipping deletion",
+                                world.getName(), chunkInfo.getChunkX(), chunkInfo.getChunkZ()),
+                        e);
+            }
+            return false;
+        }
+        //Trial chambers skipping end
 
         long now = System.currentTimeMillis();
         long lastVisit = chunkInfo.getLastVisit();
@@ -338,11 +375,6 @@ public class DeletionRunnable implements Consumer<ScheduledTask> {
                             chunkInfo.getChunkZ(),
                             chunkInfo.getLastModified()));
             return false;
-        }
-
-        // Do recovery for heavy checks as required.
-        if (heavyChecks.incrementAndGet() >= plugin.config().getDeletionChunkCount()) {
-            recover();
         }
 
         if (plugin.debug(DebugLevel.HIGH)) {

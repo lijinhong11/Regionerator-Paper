@@ -50,8 +50,13 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jspecify.annotations.NonNull;
 
+/*
+ * Upstream branch: ver/26.3<br>
+ * Upstream commit: 6e7e3db32bb6c1ad686b5dc14e62e8e3ad017662<br>
+ */
+
 /**
- * <b>Source is copied from LophineLabs/Lophine</b><br>
+ * <b>Source is adapted from LophineLabs/Lophine</b><br>
  * Thanks to their effort!
  * <p>
  * Edited by lijinhong11
@@ -106,7 +111,7 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
 
     // all three are stateless and thread-safe
     private static final LZ4Compressor LZ4_COMPRESSOR =
-            LZ4Factory.fastestInstance().highCompressor();
+            LZ4Factory.fastestInstance().fastCompressor();
     private static final LZ4FastDecompressor LZ4_DECOMPRESSOR =
             LZ4Factory.fastestInstance().fastDecompressor();
     private static final XXHash32 XX_HASH_32 = XXHashFactory.fastestInstance().hash32();
@@ -426,8 +431,12 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
         return !((boolean) SYNCED_HANDLE.getVolatile(this));
     }
 
-    public boolean softReadLock() {
-        // not done close logic yet
+    public boolean readLock(boolean soft) {
+        if (!soft) {
+            this.regionObjectLock.readLock().lock();
+            return true;
+        }
+
         return this.regionObjectLock.readLock().tryLock();
     }
 
@@ -596,8 +605,6 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
 
                     // final sync so no buffered data is lost; holding syncLock also guarantees no
                     // concurrent flusher sync is still running when we tear down below.
-                    // if this throws we deliberately stay open: the flusher can retry the sync
-                    // later, and the not-yet-synced swap data is not dropped on the floor
                     // since we hold the write lock and any read/write/sync ops is currently blocked all along the close
                     // logic, acquiring the locks inside sync is a disaster
                     try {
@@ -606,9 +613,10 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
                         failure = ex;
                     }
 
-                    try {
-                        this.markClosed();
+                    // Remove from the flusher before closing the underlying channels.
+                    this.markClosed();
 
+                    try {
                         this.swapFileChannel.close();
                     } catch (IOException ex) {
                         if (failure == null) failure = ex;
@@ -621,9 +629,6 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
                         if (failure == null) failure = e;
                         else failure.addSuppressed(e);
                     }
-
-                    // finalize
-                    this.markClosed();
 
                     if (failure != null) {
                         throw failure;
@@ -971,6 +976,8 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
     @Override
     public void write(@NotNull ChunkPos pos, ByteBuffer buf) throws IOException {
         this.writeChunk(RChunkPos.getMinecraftChunkPosX(pos), RChunkPos.getMinecraftChunkPosZ(pos), buf);
+
+        this.flushInternal(); // Match upstream maintenance after a direct chunk write.
     }
 
     // MCC 的玩意,这东西也用不上给Linear了()
@@ -996,13 +1003,17 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
 
     @Override
     public MoonriseRegionFileIO.RegionDataController.WriteData moonrise$startWrite(CompoundTag data, ChunkPos pos) {
-        final DataOutputStream out = this.getChunkDataOutputStream(pos);
+        // The upstream ChunkSystemChunkBuffer API is newer than our 1.21.11 target.
+        // Preserve its deferred-commit behavior with the local buffer adapter.
+        final ChunkBufferHelper internalBuffer = new ChunkBufferHelper(pos);
+        internalBuffer.writeOnClose = false;
+        final DataOutputStream out = new DataOutputStream(internalBuffer);
 
         return new MoonriseRegionFileIO.RegionDataController.WriteData(
                 data,
                 MoonriseRegionFileIO.RegionDataController.WriteData.WriteResult.WRITE,
                 out,
-                regionFile -> out.close());
+                regionFile -> internalBuffer.write());
     }
 
     @Override
@@ -1127,6 +1138,7 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
 
     private class ChunkBufferHelper extends ByteArrayOutputStream {
         private final ChunkPos pos;
+        private boolean writeOnClose = true;
 
         private ChunkBufferHelper(ChunkPos pos) {
             // chunk NBT payloads are tens to hundreds of KiB: BAOS's default 32 bytes
@@ -1137,12 +1149,13 @@ public class BufferedLinearRegionFile extends RegionInfo implements BufferedRegi
 
         @Override
         public void close() throws IOException {
-            ByteBuffer bytebuffer = ByteBuffer.wrap(this.buf, 0, this.count);
+            if (this.writeOnClose) {
+                this.write();
+            }
+        }
 
-            BufferedLinearRegionFile.this.writeChunk(
-                    RChunkPos.getMinecraftChunkPosX(pos), RChunkPos.getMinecraftChunkPosZ(pos), bytebuffer);
-
-            BufferedLinearRegionFile.this.flushInternal();
+        private void write() throws IOException {
+            BufferedLinearRegionFile.this.write(this.pos, ByteBuffer.wrap(this.buf, 0, this.count));
         }
     }
 

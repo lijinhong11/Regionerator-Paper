@@ -19,6 +19,17 @@ import java.nio.file.Path;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.ChunkPos;
 
+/*
+ * Upstream branch: ver/26.3<br>
+ * Upstream commit: 6e7e3db32bb6c1ad686b5dc14e62e8e3ad017662<br>
+ */
+
+/**
+ * <b>Source is adapted from LophineLabs/Lophine</b><br>
+ * Thanks to their effort!
+ * <p>
+ * Edited by lijinhong11
+ */
 interface BufferedRegionFile extends ChunkSystemRegionFile, AutoCloseable {
     Path getPath();
 

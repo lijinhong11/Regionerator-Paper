@@ -103,11 +103,6 @@ public abstract class YamlData {
     }
 
     @Nullable
-    ItemStack getItemStack(@NotNull String path) {
-        return this.storage.getItemStack(path);
-    }
-
-    @Nullable
     Location getLocation(@NotNull String path) {
         return this.storage.getLocation(path);
     }

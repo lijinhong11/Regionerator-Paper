@@ -12,17 +12,24 @@ package com.github.jikoo.regionerator.world.impl.blinear;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import net.minecraft.SharedConstants;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.world.level.ChunkPos;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 
+@Timeout(30)
 class BufferedLinearRegionFileTest {
     @TempDir
     Path directory;
@@ -108,6 +115,71 @@ class BufferedLinearRegionFileTest {
         }
         try (BufferedLinearRegionFile file = open(path)) {
             assertChunk(file, survivor, survivorData, timestamp);
+        }
+    }
+
+    @Test
+    void directWriteCreatesMasterFileBeforeClose() throws Exception {
+        Path path = directory.resolve("r.0.0.b_linear");
+        ChunkPos pos = new ChunkPos(0, 0);
+        byte[] data = {1, 2, 3};
+        long timestamp;
+        try (BufferedLinearRegionFile file = open(path)) {
+            file.write(pos, ByteBuffer.wrap(data));
+            timestamp = timestamp(file, pos);
+            assertTrue(Files.isRegularFile(path), "A fresh region must be persisted on its first direct write");
+            assertFalse(file.shouldSync());
+        }
+        try (BufferedLinearRegionFile file = open(path)) {
+            assertChunk(file, pos, data, timestamp);
+        }
+    }
+
+    @Test
+    void moonriseWriteCommitsOnlyWhenCallbackRuns() throws Exception {
+        Path path = directory.resolve("r.0.0.b_linear");
+        ChunkPos pos = new ChunkPos(0, 0);
+        byte[] data = {4, 5, 6};
+        long timestamp;
+        try (BufferedLinearRegionFile file = open(path)) {
+            var write = file.moonrise$startWrite(new CompoundTag(), pos);
+            write.output().write(data);
+            write.output().close();
+            assertFalse(file.doesChunkExist(pos), "Closing the serialization stream must not commit the chunk");
+            assertFalse(Files.exists(path));
+
+            write.write().run(null);
+            timestamp = timestamp(file, pos);
+            assertChunk(file, pos, data, timestamp);
+            assertTrue(Files.isRegularFile(path));
+        }
+        try (BufferedLinearRegionFile file = open(path)) {
+            assertChunk(file, pos, data, timestamp);
+        }
+    }
+
+    @Test
+    void forceFlushAllPersistsPendingChangesWithoutClosingFile() throws Exception {
+        Path path = directory.resolve("r.0.0.b_linear");
+        ChunkPos pos = new ChunkPos(0, 0);
+        CountDownLatch synced = new CountDownLatch(1);
+        try (BufferedLinearRegionFile file = new BufferedLinearRegionFile(null, new ChunkPos(0, 0), path, 1, flusher) {
+            @Override
+            public void syncIfNeeded() throws IOException {
+                super.syncIfNeeded();
+                synced.countDown();
+            }
+        }) {
+            file.write(pos, ByteBuffer.wrap(new byte[] {1, 2}));
+            long previousSize = Files.size(path);
+            file.write(pos, ByteBuffer.wrap(new byte[] {3, 4, 5}));
+            assertTrue(file.shouldSync());
+
+            flusher.forceFlushAll();
+            assertTrue(synced.await(5, TimeUnit.SECONDS), "Forced synchronization must ignore the idle timeout");
+            assertFalse(file.isClosed());
+            assertFalse(file.shouldSync());
+            assertTrue(Files.size(path) > previousSize, "The changed bucket must be appended to the master file");
         }
     }
 
